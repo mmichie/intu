@@ -11,11 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/mmichie/intu/pkg/filters"
 )
 
 // IntuClient is the main client for interacting with AI providers
 type IntuClient struct {
-	Provider Provider
+	Provider      Provider
+	ActiveFilters []filters.Filter
 }
 
 func NewIntuClient(provider Provider) *IntuClient {
@@ -41,7 +44,6 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 
 	walkFunc := func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
-			// Log the error and continue
 			fmt.Printf("Warning: Error accessing %s: %v\n", path, err)
 			return nil
 		}
@@ -91,6 +93,11 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 		if err != nil {
 			fmt.Printf("Warning: Error reading %s: %v\n", file, err)
 			continue
+		}
+
+		// Apply filters to content if any
+		for _, filter := range c.ActiveFilters {
+			content = []byte(filter.Process(string(content)))
 		}
 
 		fileInfo, err := os.Stat(file)

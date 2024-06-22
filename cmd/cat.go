@@ -5,14 +5,18 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/mmichie/intu/pkg/filters"
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+var listFilters bool
+
 var catCmd = &cobra.Command{
 	Use:   "cat [file...]",
 	Short: "Concatenate and display file contents",
+	Long:  `Display contents of files with optional filters applied to transform the text.`,
 	Run:   runCatCommand,
 }
 
@@ -21,12 +25,20 @@ func init() {
 	catCmd.Flags().BoolP("recursive", "r", false, "Recursively search for files")
 	catCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
 	catCmd.Flags().StringP("pattern", "p", "", "File pattern to match (e.g., \"*.go\")")
+	catCmd.Flags().StringSliceP("filters", "f", []string{}, "List of filters to apply (comma-separated)")
+	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
 }
 
 func runCatCommand(cmd *cobra.Command, args []string) {
+	if listFilters {
+		listAvailableFilters()
+		return
+	}
+
 	recursive, _ := cmd.Flags().GetBool("recursive")
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 	pattern, _ := cmd.Flags().GetString("pattern")
+	filterNames, _ := cmd.Flags().GetStringSlice("filters")
 
 	// If no pattern is provided via flag, use the first argument as pattern
 	if pattern == "" && len(args) > 0 {
@@ -38,15 +50,21 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		pattern = "*"
 	}
 
-	fmt.Printf("Debug: Pattern = %s, Recursive = %v\n", pattern, recursive)
-
 	client := intu.NewIntuClient(&intu.OpenAIProvider{APIKey: viper.GetString("OPENAI_API_KEY")})
+
+	// Load filters based on the provided names
+	for _, name := range filterNames {
+		if filter := filters.Get(name); filter != nil {
+			client.ActiveFilters = append(client.ActiveFilters, filter)
+		} else {
+			fmt.Printf("Warning: No filter found with name '%s'\n", name)
+		}
+	}
+
 	result, err := client.CatFiles(pattern, recursive)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-
-	fmt.Printf("Debug: Found %d files\n", len(result))
 
 	if len(result) == 0 {
 		fmt.Println("No files found matching the pattern.")
@@ -74,5 +92,13 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 			fmt.Println(info.Content)
 			fmt.Println()
 		}
+	}
+}
+
+// listAvailableFilters prints all filters registered in the system.
+func listAvailableFilters() {
+	fmt.Println("Available Filters:")
+	for name := range filters.Registry {
+		fmt.Printf("- %s\n", name)
 	}
 }
