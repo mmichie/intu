@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,24 +39,46 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 	var files []string
 	var err error
 
-	if recursive {
-		err = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() {
-				matched, err := filepath.Match(pattern, filepath.Base(path))
-				if err != nil {
-					return err
-				}
-				if matched {
-					files = append(files, path)
-				}
+	walkFunc := func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			// Log the error and continue
+			fmt.Printf("Warning: Error accessing %s: %v\n", path, err)
+			return nil
+		}
+		if info.IsDir() {
+			if !recursive && path != "." {
+				return filepath.SkipDir
 			}
 			return nil
-		})
+		}
+		matched, err := filepath.Match(pattern, filepath.Base(path))
+		if err != nil {
+			return err
+		}
+		if matched {
+			files = append(files, path)
+		}
+		return nil
+	}
+
+	if recursive {
+		err = filepath.Walk(".", walkFunc)
 	} else {
-		files, err = filepath.Glob(pattern)
+		// For non-recursive, we'll use Glob and then filter out directories
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, err
+		}
+		for _, match := range matches {
+			info, err := os.Stat(match)
+			if err != nil {
+				fmt.Printf("Warning: Error accessing %s: %v\n", match, err)
+				continue
+			}
+			if !info.IsDir() {
+				files = append(files, match)
+			}
+		}
 	}
 
 	if err != nil {
@@ -65,12 +89,14 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 	for _, file := range files {
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return nil, err
+			fmt.Printf("Warning: Error reading %s: %v\n", file, err)
+			continue
 		}
 
 		fileInfo, err := os.Stat(file)
 		if err != nil {
-			return nil, err
+			fmt.Printf("Warning: Error getting info for %s: %v\n", file, err)
+			continue
 		}
 
 		md5sum := md5.Sum(content)

@@ -48,6 +48,11 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 
 	fmt.Printf("Debug: Found %d files\n", len(result))
 
+	if len(result) == 0 {
+		fmt.Println("No files found matching the pattern.")
+		return
+	}
+
 	if jsonOutput {
 		jsonResult, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
@@ -58,7 +63,16 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		for _, info := range result {
 			fmt.Printf("--- File Metadata ---\n")
 			fmt.Printf("Filename: %s\n", info.Filename)
-			// ... (rest of the printing code)
+			fmt.Printf("Relative Path: %s\n", info.RelativePath)
+			fmt.Printf("File Size: %d bytes\n", info.FileSize)
+			fmt.Printf("Last Modified: %s\n", info.LastModified)
+			fmt.Printf("File Type: %s\n", info.FileType)
+			fmt.Printf("Line Count: %d\n", info.LineCount)
+			fmt.Printf("File Extension: %s\n", info.FileExtension)
+			fmt.Printf("MD5 Checksum: %s\n", info.MD5Checksum)
+			fmt.Printf("--- File Contents ---\n")
+			fmt.Println(info.Content)
+			fmt.Println()
 		}
 	}
 }
