@@ -35,8 +35,12 @@ type FileInfo struct {
 	Content       string    `json:"content"`
 }
 
-func NewIntuClient(provider Provider) *IntuClient {
-	return &IntuClient{Provider: provider}
+func NewIntuClient() (*IntuClient, error) {
+	provider, err := NewOpenAIProvider()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OpenAI provider: %v", err)
+	}
+	return &IntuClient{Provider: provider}, nil
 }
 
 func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []string) (map[string]FileInfo, error) {
@@ -151,15 +155,7 @@ func getFileType(filename string) string {
 	return strings.TrimSpace(string(output))
 }
 
-func (c *IntuClient) GenerateCommitMessage() (string, error) {
-	cmd := exec.Command("git", "diff", "--staged")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-
-	prompt := "Create a git commit message using conventional style, be concise:\n\n" + out.String()
+func (c *IntuClient) GenerateCommitMessage(diffOutput string) (string, error) {
+	prompt := fmt.Sprintf("Generate a concise git commit message using conventional style for the following changes. Provide the message in multiple lines if necessary, with a short summary in the first line followed by a blank line and then a more detailed description, using bullet points.  Optimize the output for Github and assume the engineer reading it is a FAANG engineer experienced in the code and only needs the most salient points in the git history.  The width of text should be about 79 characters to avoid long lines:\n\n%s", diffOutput)
 	return c.Provider.GenerateResponse(prompt)
 }

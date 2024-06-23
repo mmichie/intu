@@ -8,7 +8,6 @@ import (
 	"github.com/mmichie/intu/pkg/filters"
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -54,7 +53,10 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		pattern = "*"
 	}
 
-	client := intu.NewIntuClient(&intu.OpenAIProvider{APIKey: viper.GetString("OPENAI_API_KEY")})
+	client, err := intu.NewIntuClient()
+	if err != nil {
+		log.Fatalf("Error creating IntuClient: %v", err)
+	}
 
 	// Load filters based on the provided names
 	for _, name := range filterNames {
