@@ -39,9 +39,19 @@ func NewIntuClient(provider Provider) *IntuClient {
 	return &IntuClient{Provider: provider}
 }
 
-func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileInfo, error) {
+func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []string) (map[string]FileInfo, error) {
 	var files []string
 	var err error
+
+	shouldIgnore := func(path string) bool {
+		for _, ignorePattern := range ignorePatterns {
+			trimmedPattern := strings.Trim(ignorePattern, "*")
+			if strings.Contains(path, trimmedPattern) {
+				return true
+			}
+		}
+		return false
+	}
 
 	walkFunc := func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -54,12 +64,16 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 			}
 			return nil
 		}
+		if shouldIgnore(path) {
+			return nil
+		}
 		matched, err := filepath.Match(pattern, filepath.Base(path))
 		if err != nil {
 			return err
 		}
 		if matched {
 			files = append(files, path)
+		} else {
 		}
 		return nil
 	}
@@ -67,7 +81,6 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 	if recursive {
 		err = filepath.Walk(".", walkFunc)
 	} else {
-		// For non-recursive, we'll use Glob and then filter out directories
 		matches, err := filepath.Glob(pattern)
 		if err != nil {
 			return nil, err
@@ -78,7 +91,7 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool) (map[string]FileIn
 				fmt.Printf("Warning: Error accessing %s: %v\n", match, err)
 				continue
 			}
-			if !info.IsDir() {
+			if !info.IsDir() && !shouldIgnore(match) {
 				files = append(files, match)
 			}
 		}

@@ -11,7 +11,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var listFilters bool
+var (
+	listFilters    bool
+	ignorePatterns []string
+)
 
 var catCmd = &cobra.Command{
 	Use:   "cat [file...]",
@@ -26,6 +29,7 @@ func init() {
 	catCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
 	catCmd.Flags().StringP("pattern", "p", "", "File pattern to match (e.g., \"*.go\")")
 	catCmd.Flags().StringSliceP("filters", "f", []string{}, "List of filters to apply (comma-separated)")
+	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", []string{}, "Patterns to ignore (can be specified multiple times)")
 	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
 }
 
@@ -61,7 +65,7 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	result, err := client.CatFiles(pattern, recursive)
+	result, err := client.CatFiles(pattern, recursive, ignorePatterns)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
