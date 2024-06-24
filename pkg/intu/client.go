@@ -21,18 +21,23 @@ type IntuClient struct {
 	ActiveFilters []filters.Filter
 }
 
-// FileInfo represents the metadata and content of a file
-type FileInfo struct {
-	Filename      string    `json:"filename"`
-	RelativePath  string    `json:"relative_path"`
+// BasicFileInfo represents the basic metadata and content of a file
+type BasicFileInfo struct {
+	Filename     string `json:"filename"`
+	RelativePath string `json:"relative_path"`
+	FileType     string `json:"file_type"`
+	Content      string `json:"content"`
+}
+
+// ExtendedFileInfo represents all metadata and content of a file
+type ExtendedFileInfo struct {
+	BasicFileInfo
 	FileSize      int64     `json:"file_size"`
 	ContentSize   int64     `json:"content_size"`
 	LastModified  time.Time `json:"last_modified"`
-	FileType      string    `json:"file_type"`
 	LineCount     int       `json:"line_count"`
 	FileExtension string    `json:"file_extension"`
 	MD5Checksum   string    `json:"md5_checksum"`
-	Content       string    `json:"content"`
 }
 
 func NewIntuClient(providerName string) (*IntuClient, error) {
@@ -91,7 +96,7 @@ experienced in the code and only needs the most salient points in the git histor
 The width of text should be about 79 characters to avoid long lines.`, diffOutput)
 }
 
-func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []string) (map[string]FileInfo, error) {
+func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []string, extended bool) (interface{}, error) {
 	var files []string
 	var err error
 
@@ -152,45 +157,83 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []s
 		return nil, err
 	}
 
-	result := make(map[string]FileInfo)
-	for _, file := range files {
-		content, err := os.ReadFile(file)
-		if err != nil {
-			fmt.Printf("Warning: Error reading %s: %v\n", file, err)
-			continue
+	if extended {
+		result := make(map[string]ExtendedFileInfo)
+		for _, file := range files {
+			info, err := c.getExtendedFileInfo(file)
+			if err != nil {
+				fmt.Printf("Warning: Error processing %s: %v\n", file, err)
+				continue
+			}
+			result[file] = info
 		}
-
-		// Apply filters to content if any
-		for _, filter := range c.ActiveFilters {
-			content = []byte(filter.Process(string(content)))
+		return result, nil
+	} else {
+		result := make(map[string]BasicFileInfo)
+		for _, file := range files {
+			info, err := c.getBasicFileInfo(file)
+			if err != nil {
+				fmt.Printf("Warning: Error processing %s: %v\n", file, err)
+				continue
+			}
+			result[file] = info
 		}
+		return result, nil
+	}
+}
 
-		fileInfo, err := os.Stat(file)
-		if err != nil {
-			fmt.Printf("Warning: Error getting info for %s: %v\n", file, err)
-			continue
-		}
-
-		md5sum := md5.Sum(content)
-		checksum := hex.EncodeToString(md5sum[:])
-
-		info := FileInfo{
-			Filename:      filepath.Base(file),
-			RelativePath:  file,
-			FileSize:      fileInfo.Size(),
-			ContentSize:   int64(len(content)),
-			LastModified:  fileInfo.ModTime(),
-			FileType:      getFileType(file),
-			LineCount:     bytes.Count(content, []byte{'\n'}) + 1,
-			FileExtension: filepath.Ext(file),
-			MD5Checksum:   checksum,
-			Content:       string(content),
-		}
-
-		result[file] = info
+func (c *IntuClient) getBasicFileInfo(file string) (BasicFileInfo, error) {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return BasicFileInfo{}, err
 	}
 
-	return result, nil
+	// Apply filters to content if any
+	for _, filter := range c.ActiveFilters {
+		content = []byte(filter.Process(string(content)))
+	}
+
+	return BasicFileInfo{
+		Filename:     filepath.Base(file),
+		RelativePath: file,
+		FileType:     getFileType(file),
+		Content:      string(content),
+	}, nil
+}
+
+func (c *IntuClient) getExtendedFileInfo(file string) (ExtendedFileInfo, error) {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return ExtendedFileInfo{}, err
+	}
+
+	// Apply filters to content if any
+	for _, filter := range c.ActiveFilters {
+		content = []byte(filter.Process(string(content)))
+	}
+
+	fileInfo, err := os.Stat(file)
+	if err != nil {
+		return ExtendedFileInfo{}, err
+	}
+
+	md5sum := md5.Sum(content)
+	checksum := hex.EncodeToString(md5sum[:])
+
+	return ExtendedFileInfo{
+		BasicFileInfo: BasicFileInfo{
+			Filename:     filepath.Base(file),
+			RelativePath: file,
+			FileType:     getFileType(file),
+			Content:      string(content),
+		},
+		FileSize:      fileInfo.Size(),
+		ContentSize:   int64(len(content)),
+		LastModified:  fileInfo.ModTime(),
+		LineCount:     bytes.Count(content, []byte{'\n'}) + 1,
+		FileExtension: filepath.Ext(file),
+		MD5Checksum:   checksum,
+	}, nil
 }
 
 func getFileType(filename string) string {

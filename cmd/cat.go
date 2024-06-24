@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	listFilters    bool
-	ignorePatterns []string
+	listFilters      bool
+	ignorePatterns   []string
+	extendedMetadata bool
 )
 
 var catCmd = &cobra.Command{
@@ -31,6 +32,7 @@ func init() {
 	catCmd.Flags().StringSliceP("filters", "f", []string{}, "List of filters to apply (comma-separated)")
 	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", []string{}, "Patterns to ignore (can be specified multiple times)")
 	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
+	catCmd.Flags().BoolVarP(&extendedMetadata, "extended", "e", false, "Display extended metadata")
 }
 
 func runCatCommand(cmd *cobra.Command, args []string) {
@@ -74,12 +76,12 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	result, err := client.CatFiles(pattern, recursive, ignorePatterns)
+	result, err := client.CatFiles(pattern, recursive, ignorePatterns, extendedMetadata)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	if len(result) == 0 {
+	if result == nil {
 		fmt.Println("No files found matching the pattern.")
 		return
 	}
@@ -91,21 +93,44 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		}
 		fmt.Println(string(jsonResult))
 	} else {
-		for _, info := range result {
-			fmt.Printf("--- File Metadata ---\n")
-			fmt.Printf("Filename: %s\n", info.Filename)
-			fmt.Printf("Relative Path: %s\n", info.RelativePath)
-			fmt.Printf("File Size: %d bytes\n", info.FileSize)
-			fmt.Printf("Last Modified: %s\n", info.LastModified)
-			fmt.Printf("File Type: %s\n", info.FileType)
-			fmt.Printf("Line Count: %d\n", info.LineCount)
-			fmt.Printf("File Extension: %s\n", info.FileExtension)
-			fmt.Printf("MD5 Checksum: %s\n", info.MD5Checksum)
-			fmt.Printf("--- File Contents ---\n")
-			fmt.Println(info.Content)
-			fmt.Println()
+		if extendedMetadata {
+			extendedResult := result.(map[string]intu.ExtendedFileInfo)
+			for _, info := range extendedResult {
+				printExtendedFileInfo(info)
+			}
+		} else {
+			basicResult := result.(map[string]intu.BasicFileInfo)
+			for _, info := range basicResult {
+				printBasicFileInfo(info)
+			}
 		}
 	}
+}
+
+func printBasicFileInfo(info intu.BasicFileInfo) {
+	fmt.Printf("--- File Metadata ---\n")
+	fmt.Printf("Filename: %s\n", info.Filename)
+	fmt.Printf("Relative Path: %s\n", info.RelativePath)
+	fmt.Printf("File Type: %s\n", info.FileType)
+	fmt.Printf("--- File Contents ---\n")
+	fmt.Println(info.Content)
+	fmt.Println()
+}
+
+func printExtendedFileInfo(info intu.ExtendedFileInfo) {
+	fmt.Printf("--- File Metadata ---\n")
+	fmt.Printf("Filename: %s\n", info.Filename)
+	fmt.Printf("Relative Path: %s\n", info.RelativePath)
+	fmt.Printf("File Type: %s\n", info.FileType)
+	fmt.Printf("File Size: %d bytes\n", info.FileSize)
+	fmt.Printf("Content Size: %d bytes\n", info.ContentSize)
+	fmt.Printf("Last Modified: %s\n", info.LastModified)
+	fmt.Printf("Line Count: %d\n", info.LineCount)
+	fmt.Printf("File Extension: %s\n", info.FileExtension)
+	fmt.Printf("MD5 Checksum: %s\n", info.MD5Checksum)
+	fmt.Printf("--- File Contents ---\n")
+	fmt.Println(info.Content)
+	fmt.Println()
 }
 
 // listAvailableFilters prints all filters registered in the system.
