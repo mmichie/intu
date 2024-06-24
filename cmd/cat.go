@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/mmichie/intu/pkg/filters"
 	"github.com/mmichie/intu/pkg/intu"
@@ -53,7 +54,13 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		pattern = "*"
 	}
 
-	client, err := intu.NewIntuClient()
+	// Get the provider from the flag or environment variable
+	provider, _ := cmd.Flags().GetString("provider")
+	if provider == "" {
+		provider = os.Getenv("INTU_PROVIDER")
+	}
+
+	client, err := intu.NewIntuClient(provider)
 	if err != nil {
 		log.Fatalf("Error creating IntuClient: %v", err)
 	}

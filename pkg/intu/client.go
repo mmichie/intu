@@ -35,12 +35,60 @@ type FileInfo struct {
 	Content       string    `json:"content"`
 }
 
-func NewIntuClient() (*IntuClient, error) {
-	provider, err := NewOpenAIProvider()
+func NewIntuClient(providerName string) (*IntuClient, error) {
+	provider, err := selectProvider(providerName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OpenAI provider: %v", err)
+		return nil, fmt.Errorf("failed to create provider: %v", err)
 	}
 	return &IntuClient{Provider: provider}, nil
+}
+
+func selectProvider(providerName string) (Provider, error) {
+	if providerName == "" {
+		providerName = os.Getenv("INTU_PROVIDER")
+	}
+
+	switch strings.ToLower(providerName) {
+	case "openai":
+		return NewOpenAIProvider()
+	case "claude":
+		return NewClaudeAIProvider()
+	case "":
+		// Default to OpenAI if no provider is specified
+		return NewOpenAIProvider()
+	default:
+		return nil, fmt.Errorf("unknown provider: %s", providerName)
+	}
+}
+
+func (c *IntuClient) GenerateCommitMessage(diffOutput string) (string, error) {
+	basePrompt := c.generateBasePrompt(diffOutput)
+
+	// Format the prompt based on the provider type
+	var formattedPrompt string
+	switch c.Provider.(type) {
+	case *ClaudeAIProvider:
+		formattedPrompt = fmt.Sprintf("\n\nHuman: %s\n\nAssistant: Certainly! Here's a concise git commit message for the changes you've described:", basePrompt)
+	default: // OpenAI and any other providers
+		formattedPrompt = basePrompt
+	}
+
+	return c.Provider.GenerateResponse(formattedPrompt)
+}
+
+func (c *IntuClient) generateBasePrompt(diffOutput string) string {
+	return fmt.Sprintf(`You are a helpful assistant that generates concise git commit messages in conventional style.
+
+%s
+
+Please generate a concise git commit message using conventional style for the
+above diff output.
+
+Provide the message in multiple lines if necessary, with a short summary in the first
+line followed by a blank line and then a more detailed description, using bullet points.
+Optimize the output for Github and assume the engineer reading it is a FAANG engineer
+experienced in the code and only needs the most salient points in the git history.
+The width of text should be about 79 characters to avoid long lines.`, diffOutput)
 }
 
 func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []string) (map[string]FileInfo, error) {
@@ -77,7 +125,6 @@ func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []s
 		}
 		if matched {
 			files = append(files, path)
-		} else {
 		}
 		return nil
 	}
@@ -153,9 +200,4 @@ func getFileType(filename string) string {
 		return "unknown"
 	}
 	return strings.TrimSpace(string(output))
-}
-
-func (c *IntuClient) GenerateCommitMessage(diffOutput string) (string, error) {
-	prompt := fmt.Sprintf("Generate a concise git commit message using conventional style for the following changes. Provide the message in multiple lines if necessary, with a short summary in the first line followed by a blank line and then a more detailed description, using bullet points.  Optimize the output for Github and assume the engineer reading it is a FAANG engineer experienced in the code and only needs the most salient points in the git history.  The width of text should be about 79 characters to avoid long lines:\n\n%s", diffOutput)
-	return c.Provider.GenerateResponse(prompt)
 }

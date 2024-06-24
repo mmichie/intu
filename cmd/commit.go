@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	provider string
+)
+
 var commitCmd = &cobra.Command{
 	Use:   "commit",
 	Short: "Generate a commit message",
@@ -26,11 +30,12 @@ var commitCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
+	commitCmd.Flags().StringVarP(&provider, "provider", "p", "", "AI provider to use (openai or claude)")
 }
 
 func runCommitCommand(cmd *cobra.Command, args []string) {
-	// Create a new IntuClient
-	client, err := intu.NewIntuClient()
+	// Create a new IntuClient with the specified provider
+	client, err := intu.NewIntuClient(provider)
 	if err != nil {
 		log.Fatalf("Error creating IntuClient: %v", err)
 	}
