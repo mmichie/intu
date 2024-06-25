@@ -1,246 +1,94 @@
 package intu
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/hex"
+	"context"
 	"fmt"
-	"io/fs"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"time"
+	"sync"
 
-	"github.com/mmichie/intu/pkg/filters"
+	"github.com/mmichie/intu/internal/ai"
+	"github.com/mmichie/intu/internal/fileutils"
+	"github.com/mmichie/intu/internal/filters"
 )
 
-// IntuClient is the main client for interacting with AI providers
-type IntuClient struct {
-	Provider      Provider
-	ActiveFilters []filters.Filter
+// Client is the main client for interacting with AI providers
+type Client struct {
+	Provider ai.Provider
+	Filters  []filters.Filter
 }
 
-// BasicFileInfo represents the basic metadata and content of a file
-type BasicFileInfo struct {
-	Filename     string `json:"filename"`
-	RelativePath string `json:"relative_path"`
-	FileType     string `json:"file_type"`
-	Content      string `json:"content"`
+// NewClient creates a new Client with the specified provider
+func NewClient(provider ai.Provider) *Client {
+	return &Client{
+		Provider: provider,
+	}
 }
 
-// ExtendedFileInfo represents all metadata and content of a file
-type ExtendedFileInfo struct {
-	BasicFileInfo
-	FileSize      int64     `json:"file_size"`
-	ContentSize   int64     `json:"content_size"`
-	LastModified  time.Time `json:"last_modified"`
-	LineCount     int       `json:"line_count"`
-	FileExtension string    `json:"file_extension"`
-	MD5Checksum   string    `json:"md5_checksum"`
+// AddFilter adds a filter to the client
+func (c *Client) AddFilter(filter filters.Filter) {
+	c.Filters = append(c.Filters, filter)
 }
 
-func NewIntuClient(providerName string) (*IntuClient, error) {
-	provider, err := selectProvider(providerName)
+// GenerateCommitMessage generates a commit message based on the provided diff
+func (c *Client) GenerateCommitMessage(ctx context.Context, diffOutput string) (string, error) {
+	prompt := generateCommitPrompt(diffOutput)
+	return c.Provider.GenerateResponse(ctx, prompt)
+}
+
+// CatFiles processes files matching the given pattern
+func (c *Client) CatFiles(ctx context.Context, pattern string, options fileutils.Options) ([]fileutils.FileInfo, error) {
+	files, err := fileutils.FindFiles(pattern, options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create provider: %v", err)
-	}
-	return &IntuClient{Provider: provider}, nil
-}
-
-func selectProvider(providerName string) (Provider, error) {
-	if providerName == "" {
-		providerName = os.Getenv("INTU_PROVIDER")
+		return nil, fmt.Errorf("error finding files: %w", err)
 	}
 
-	switch strings.ToLower(providerName) {
-	case "openai":
-		return NewOpenAIProvider()
-	case "claude":
-		return NewClaudeAIProvider()
-	case "":
-		// Default to OpenAI if no provider is specified
-		return NewOpenAIProvider()
-	default:
-		return nil, fmt.Errorf("unknown provider: %s", providerName)
-	}
-}
+	var wg sync.WaitGroup
+	results := make([]fileutils.FileInfo, len(files))
+	errors := make(chan error, len(files))
 
-func (c *IntuClient) GenerateCommitMessage(diffOutput string) (string, error) {
-	basePrompt := c.generateBasePrompt(diffOutput)
-
-	// Format the prompt based on the provider type
-	var formattedPrompt string
-	switch c.Provider.(type) {
-	case *ClaudeAIProvider:
-		formattedPrompt = fmt.Sprintf("\n\nHuman: %s\n\nAssistant: Certainly! Here's a concise git commit message for the changes you've described:", basePrompt)
-	default: // OpenAI and any other providers
-		formattedPrompt = basePrompt
-	}
-
-	return c.Provider.GenerateResponse(formattedPrompt)
-}
-
-func (c *IntuClient) generateBasePrompt(diffOutput string) string {
-	return fmt.Sprintf(`You are a helpful assistant that generates concise git commit messages in conventional style.
-
-%s
-
-Please generate a concise git commit message using conventional style for the
-above diff output.
-
-Provide the message in multiple lines if necessary, with a short summary in the first
-line followed by a blank line and then a more detailed description, using bullet points.
-Optimize the output for Github and assume the engineer reading it is a FAANG engineer
-experienced in the code and only needs the most salient points in the git history.
-The width of text should be about 79 characters to avoid long lines.`, diffOutput)
-}
-
-func (c *IntuClient) CatFiles(pattern string, recursive bool, ignorePatterns []string, extended bool) (interface{}, error) {
-	var files []string
-	var err error
-
-	shouldIgnore := func(path string) bool {
-		for _, ignorePattern := range ignorePatterns {
-			trimmedPattern := strings.Trim(ignorePattern, "*")
-			if strings.Contains(path, trimmedPattern) {
-				return true
-			}
-		}
-		return false
-	}
-
-	walkFunc := func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			fmt.Printf("Warning: Error accessing %s: %v\n", path, err)
-			return nil
-		}
-		if info.IsDir() {
-			if !recursive && path != "." {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if shouldIgnore(path) {
-			return nil
-		}
-		matched, err := filepath.Match(pattern, filepath.Base(path))
-		if err != nil {
-			return err
-		}
-		if matched {
-			files = append(files, path)
-		}
-		return nil
-	}
-
-	if recursive {
-		err = filepath.Walk(".", walkFunc)
-	} else {
-		matches, err := filepath.Glob(pattern)
-		if err != nil {
-			return nil, err
-		}
-		for _, match := range matches {
-			info, err := os.Stat(match)
+	for i, file := range files {
+		wg.Add(1)
+		go func(i int, file string) {
+			defer wg.Done()
+			info, err := c.processFile(file, options.Extended)
 			if err != nil {
-				fmt.Printf("Warning: Error accessing %s: %v\n", match, err)
-				continue
+				errors <- fmt.Errorf("error processing %s: %w", file, err)
+				return
 			}
-			if !info.IsDir() && !shouldIgnore(match) {
-				files = append(files, match)
-			}
-		}
+			results[i] = info
+		}(i, file)
 	}
 
+	wg.Wait()
+	close(errors)
+
+	if len(errors) > 0 {
+		return results, <-errors
+	}
+
+	return results, nil
+}
+
+func (c *Client) processFile(file string, extended bool) (fileutils.FileInfo, error) {
+	content, err := fileutils.ReadFile(file)
 	if err != nil {
-		return nil, err
+		return fileutils.FileInfo{}, err
+	}
+
+	for _, filter := range c.Filters {
+		content = filter.Process(content)
 	}
 
 	if extended {
-		result := make(map[string]ExtendedFileInfo)
-		for _, file := range files {
-			info, err := c.getExtendedFileInfo(file)
-			if err != nil {
-				fmt.Printf("Warning: Error processing %s: %v\n", file, err)
-				continue
-			}
-			result[file] = info
-		}
-		return result, nil
-	} else {
-		result := make(map[string]BasicFileInfo)
-		for _, file := range files {
-			info, err := c.getBasicFileInfo(file)
-			if err != nil {
-				fmt.Printf("Warning: Error processing %s: %v\n", file, err)
-				continue
-			}
-			result[file] = info
-		}
-		return result, nil
+		return fileutils.GetExtendedFileInfo(file, content)
 	}
+	return fileutils.GetBasicFileInfo(file, content)
 }
 
-func (c *IntuClient) getBasicFileInfo(file string) (BasicFileInfo, error) {
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return BasicFileInfo{}, err
-	}
+func generateCommitPrompt(diffOutput string) string {
+	return fmt.Sprintf(`Generate a concise git commit message in conventional style for the following diff:
 
-	// Apply filters to content if any
-	for _, filter := range c.ActiveFilters {
-		content = []byte(filter.Process(string(content)))
-	}
+%s
 
-	return BasicFileInfo{
-		Filename:     filepath.Base(file),
-		RelativePath: file,
-		FileType:     getFileType(file),
-		Content:      string(content),
-	}, nil
-}
-
-func (c *IntuClient) getExtendedFileInfo(file string) (ExtendedFileInfo, error) {
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return ExtendedFileInfo{}, err
-	}
-
-	// Apply filters to content if any
-	for _, filter := range c.ActiveFilters {
-		content = []byte(filter.Process(string(content)))
-	}
-
-	fileInfo, err := os.Stat(file)
-	if err != nil {
-		return ExtendedFileInfo{}, err
-	}
-
-	md5sum := md5.Sum(content)
-	checksum := hex.EncodeToString(md5sum[:])
-
-	return ExtendedFileInfo{
-		BasicFileInfo: BasicFileInfo{
-			Filename:     filepath.Base(file),
-			RelativePath: file,
-			FileType:     getFileType(file),
-			Content:      string(content),
-		},
-		FileSize:      fileInfo.Size(),
-		ContentSize:   int64(len(content)),
-		LastModified:  fileInfo.ModTime(),
-		LineCount:     bytes.Count(content, []byte{'\n'}) + 1,
-		FileExtension: filepath.Ext(file),
-		MD5Checksum:   checksum,
-	}, nil
-}
-
-func getFileType(filename string) string {
-	cmd := exec.Command("file", "-b", filename)
-	output, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(output))
+Provide a short summary in the first line, followed by a blank line and a more detailed description using bullet points.
+Optimize for a FAANG engineer experienced with the code. Keep line width to about 79 characters.`, diffOutput)
 }

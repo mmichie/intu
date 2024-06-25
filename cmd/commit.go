@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -10,10 +11,6 @@ import (
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
-)
-
-var (
-	provider string
 )
 
 var commitCmd = &cobra.Command{
@@ -30,36 +27,32 @@ var commitCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
-	commitCmd.Flags().StringVarP(&provider, "provider", "p", "", "AI provider to use (openai or claude)")
 }
 
 func runCommitCommand(cmd *cobra.Command, args []string) {
-	// Create a new IntuClient with the specified provider
-	client, err := intu.NewIntuClient(provider)
+	provider, err := selectProvider(cmd)
 	if err != nil {
-		log.Fatalf("Error creating IntuClient: %v", err)
+		log.Fatalf("Error creating AI provider: %v", err)
 	}
 
-	// Read input from stdin
+	client := intu.NewClient(provider)
+
 	diffOutput, err := readInput()
 	if err != nil {
 		log.Fatalf("Error reading input: %v", err)
 	}
 
-	// If there's no input, inform the user and exit
 	if diffOutput == "" {
 		fmt.Println("No input received. Please provide git diff output.")
 		fmt.Println("Usage: git diff --staged | intu commit")
 		return
 	}
 
-	// Generate the commit message using the diff output
-	message, err := client.GenerateCommitMessage(diffOutput)
+	message, err := client.GenerateCommitMessage(context.Background(), diffOutput)
 	if err != nil {
 		log.Fatalf("Error generating commit message: %v", err)
 	}
 
-	// Print the generated commit message to stdout
 	fmt.Println(message)
 }
 

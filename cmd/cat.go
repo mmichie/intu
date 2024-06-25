@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 
-	"github.com/mmichie/intu/pkg/filters"
+	"github.com/mmichie/intu/internal/ai"
+	"github.com/mmichie/intu/internal/fileutils"
+	"github.com/mmichie/intu/internal/filters"
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
 )
@@ -56,84 +58,89 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		pattern = "*"
 	}
 
-	// Get the provider from the flag or environment variable
-	provider, _ := cmd.Flags().GetString("provider")
-	if provider == "" {
-		provider = os.Getenv("INTU_PROVIDER")
-	}
-
-	client, err := intu.NewIntuClient(provider)
+	provider, err := selectProvider(cmd)
 	if err != nil {
-		log.Fatalf("Error creating IntuClient: %v", err)
+		log.Fatalf("Error creating AI provider: %v", err)
 	}
 
-	// Load filters based on the provided names
+	client := intu.NewClient(provider)
+
+	// Add filters to the client
 	for _, name := range filterNames {
 		if filter := filters.Get(name); filter != nil {
-			client.ActiveFilters = append(client.ActiveFilters, filter)
+			client.AddFilter(filter)
 		} else {
 			fmt.Printf("Warning: No filter found with name '%s'\n", name)
 		}
 	}
 
-	result, err := client.CatFiles(pattern, recursive, ignorePatterns, extendedMetadata)
+	options := fileutils.Options{
+		Recursive: recursive,
+		Extended:  extendedMetadata,
+		Ignore:    ignorePatterns,
+	}
+
+	results, err := client.CatFiles(context.Background(), pattern, options)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	if result == nil {
+	if len(results) == 0 {
 		fmt.Println("No files found matching the pattern.")
 		return
 	}
 
 	if jsonOutput {
-		jsonResult, err := json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			log.Fatalf("Error converting to JSON: %v", err)
-		}
-		fmt.Println(string(jsonResult))
+		outputJSON(results)
 	} else {
-		if extendedMetadata {
-			extendedResult := result.(map[string]intu.ExtendedFileInfo)
-			for _, info := range extendedResult {
-				printExtendedFileInfo(info)
-			}
-		} else {
-			basicResult := result.(map[string]intu.BasicFileInfo)
-			for _, info := range basicResult {
-				printBasicFileInfo(info)
-			}
-		}
+		outputText(results)
 	}
 }
 
-func printBasicFileInfo(info intu.BasicFileInfo) {
-	fmt.Printf("--- File Metadata ---\n")
-	fmt.Printf("Filename: %s\n", info.Filename)
-	fmt.Printf("Relative Path: %s\n", info.RelativePath)
-	fmt.Printf("File Type: %s\n", info.FileType)
-	fmt.Printf("--- File Contents ---\n")
-	fmt.Println(info.Content)
-	fmt.Println()
+func selectProvider(cmd *cobra.Command) (ai.Provider, error) {
+	providerName, _ := cmd.Flags().GetString("provider")
+	switch providerName {
+	case "openai":
+		return ai.NewOpenAIProvider()
+	case "claude":
+		return ai.NewClaudeAIProvider()
+	default:
+		return ai.NewOpenAIProvider()
+	}
 }
 
-func printExtendedFileInfo(info intu.ExtendedFileInfo) {
-	fmt.Printf("--- File Metadata ---\n")
-	fmt.Printf("Filename: %s\n", info.Filename)
-	fmt.Printf("Relative Path: %s\n", info.RelativePath)
-	fmt.Printf("File Type: %s\n", info.FileType)
-	fmt.Printf("File Size: %d bytes\n", info.FileSize)
-	fmt.Printf("Content Size: %d bytes\n", info.ContentSize)
-	fmt.Printf("Last Modified: %s\n", info.LastModified)
-	fmt.Printf("Line Count: %d\n", info.LineCount)
-	fmt.Printf("File Extension: %s\n", info.FileExtension)
-	fmt.Printf("MD5 Checksum: %s\n", info.MD5Checksum)
-	fmt.Printf("--- File Contents ---\n")
-	fmt.Println(info.Content)
-	fmt.Println()
+func outputJSON(results []fileutils.FileInfo) {
+	jsonResult, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		log.Fatalf("Error converting to JSON: %v", err)
+	}
+	fmt.Println(string(jsonResult))
 }
 
-// listAvailableFilters prints all filters registered in the system.
+func outputText(results []fileutils.FileInfo) {
+	for _, info := range results {
+		fmt.Printf("--- File Metadata ---\n")
+		fmt.Printf("Filename: %s\n", info.Filename)
+		fmt.Printf("Relative Path: %s\n", info.RelativePath)
+		fmt.Printf("File Type: %s\n", info.FileType)
+		if info.FileSize > 0 {
+			fmt.Printf("File Size: %d bytes\n", info.FileSize)
+		}
+		if !info.LastModified.IsZero() {
+			fmt.Printf("Last Modified: %s\n", info.LastModified)
+		}
+		if info.LineCount > 0 {
+			fmt.Printf("Line Count: %d\n", info.LineCount)
+		}
+		if info.MD5Checksum != "" {
+			fmt.Printf("MD5 Checksum: %s\n", info.MD5Checksum)
+		}
+		fmt.Printf("--- File Contents ---\n")
+		fmt.Println(info.Content)
+		fmt.Println()
+	}
+}
+
 func listAvailableFilters() {
 	fmt.Println("Available Filters:")
 	for name := range filters.Registry {

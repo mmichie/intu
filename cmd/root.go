@@ -8,6 +8,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	cfgFile  string
+	provider string
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "intu",
 	Short: "intu is an AI-powered command-line tool",
@@ -24,9 +29,28 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.intu.yaml)")
+	rootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai or claude)")
+
+	viper.BindPFlag("provider", rootCmd.PersistentFlags().Lookup("provider"))
 }
 
 func initConfig() {
-	viper.SetEnvPrefix("INTU")
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		viper.AddConfigPath(home)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName(".intu")
+	}
+
 	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
 }
