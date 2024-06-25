@@ -1,4 +1,6 @@
-package fileutils
+// File: internal/fileops/fileops.go
+
+package fileops
 
 import (
 	"crypto/md5"
@@ -6,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -26,6 +29,7 @@ type FileInfo struct {
 	MD5Checksum  string    `json:"md5_checksum,omitempty"`
 }
 
+// FindFiles finds all files matching the given pattern
 func FindFiles(pattern string, options Options) ([]string, error) {
 	var files []string
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
@@ -51,6 +55,7 @@ func FindFiles(pattern string, options Options) ([]string, error) {
 	return files, err
 }
 
+// ReadFile reads the content of a file
 func ReadFile(path string) (string, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -59,6 +64,7 @@ func ReadFile(path string) (string, error) {
 	return string(content), nil
 }
 
+// GetBasicFileInfo returns basic information about a file
 func GetBasicFileInfo(path string, content string) (FileInfo, error) {
 	return FileInfo{
 		Filename:     filepath.Base(path),
@@ -68,6 +74,7 @@ func GetBasicFileInfo(path string, content string) (FileInfo, error) {
 	}, nil
 }
 
+// GetExtendedFileInfo returns extended information about a file
 func GetExtendedFileInfo(path string, content string) (FileInfo, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -89,14 +96,12 @@ func GetExtendedFileInfo(path string, content string) (FileInfo, error) {
 	}, nil
 }
 
+// getFileType returns the file type based on its extension
 func getFileType(filename string) string {
-	// Implement file type detection logic here
-	// For simplicity, we're just returning the file extension
 	return filepath.Ext(filename)
 }
 
+// countLines counts the number of lines in a string
 func countLines(s string) int {
-	// Implement line counting logic here
-	// This is a simple implementation and might not be accurate for all cases
-	return len(s) - len([]byte(s)) + 1
+	return len(strings.Split(s, "\n"))
 }

@@ -6,20 +6,22 @@ import (
 	"sync"
 
 	"github.com/mmichie/intu/internal/ai"
-	"github.com/mmichie/intu/internal/fileutils"
+	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
 )
 
-// Client is the main client for interacting with AI providers
+// Client is the main client
 type Client struct {
 	Provider ai.Provider
+	FileOps  *fileops.FileOperator
 	Filters  []filters.Filter
 }
 
-// NewClient creates a new Client with the specified provider
+// NewClient creates a new Client
 func NewClient(provider ai.Provider) *Client {
 	return &Client{
 		Provider: provider,
+		FileOps:  fileops.NewFileOperator(),
 	}
 }
 
@@ -39,14 +41,14 @@ func (c *Client) GenerateCommitMessage(ctx context.Context, diffOutput string) (
 }
 
 // CatFiles processes files matching the given pattern
-func (c *Client) CatFiles(ctx context.Context, pattern string, options fileutils.Options) ([]fileutils.FileInfo, error) {
-	files, err := fileutils.FindFiles(pattern, options)
+func (c *Client) CatFiles(ctx context.Context, pattern string, options fileops.Options) ([]fileops.FileInfo, error) {
+	files, err := c.FileOps.FindFiles(pattern, options)
 	if err != nil {
 		return nil, fmt.Errorf("error finding files: %w", err)
 	}
 
 	var wg sync.WaitGroup
-	results := make([]fileutils.FileInfo, len(files))
+	results := make([]fileops.FileInfo, len(files))
 	errs := make([]error, len(files))
 
 	for i, file := range files {
@@ -79,31 +81,31 @@ func (c *Client) CatFiles(ctx context.Context, pattern string, options fileutils
 	return results, nil
 }
 
-func (c *Client) processFile(ctx context.Context, file string, extended bool) (fileutils.FileInfo, error) {
-	content, err := fileutils.ReadFile(file)
+func (c *Client) processFile(ctx context.Context, file string, extended bool) (fileops.FileInfo, error) {
+	content, err := c.FileOps.ReadFile(file)
 	if err != nil {
-		return fileutils.FileInfo{}, fmt.Errorf("failed to read file: %w", err)
+		return fileops.FileInfo{}, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	for _, filter := range c.Filters {
 		select {
 		case <-ctx.Done():
-			return fileutils.FileInfo{}, ctx.Err()
+			return fileops.FileInfo{}, ctx.Err()
 		default:
 			content = filter.Process(content)
 		}
 	}
 
-	var info fileutils.FileInfo
+	var info fileops.FileInfo
 	var infoErr error
 	if extended {
-		info, infoErr = fileutils.GetExtendedFileInfo(file, content)
+		info, infoErr = c.FileOps.GetExtendedFileInfo(file, content)
 	} else {
-		info, infoErr = fileutils.GetBasicFileInfo(file, content)
+		info, infoErr = c.FileOps.GetBasicFileInfo(file, content)
 	}
 
 	if infoErr != nil {
-		return fileutils.FileInfo{}, fmt.Errorf("failed to get file info: %w", infoErr)
+		return fileops.FileInfo{}, fmt.Errorf("failed to get file info: %w", infoErr)
 	}
 
 	return info, nil

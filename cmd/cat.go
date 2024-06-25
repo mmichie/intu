@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mmichie/intu/internal/fileutils"
+	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
@@ -28,7 +28,7 @@ func init() {
 	rootCmd.AddCommand(catCmd)
 	catCmd.Flags().BoolP("recursive", "r", false, "Recursively search for files")
 	catCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
-	catCmd.Flags().StringP("pattern", "p", "", "File pattern to match (e.g., \"*.go\")")
+	catCmd.Flags().StringP("pattern", "p", "", `File pattern to match (e.g., "*.go")`)
 	catCmd.Flags().StringSliceP("filters", "f", []string{}, "List of filters to apply (comma-separated)")
 	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", []string{}, "Patterns to ignore (can be specified multiple times)")
 	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
@@ -71,7 +71,7 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	options := fileutils.Options{
+	options := fileops.Options{
 		Recursive: recursive,
 		Extended:  extendedMetadata,
 		Ignore:    ignorePatterns,
@@ -94,7 +94,7 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func outputJSON(results []fileutils.FileInfo) error {
+func outputJSON(results []fileops.FileInfo) error {
 	jsonResult, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error converting to JSON: %w", err)
@@ -103,7 +103,7 @@ func outputJSON(results []fileutils.FileInfo) error {
 	return nil
 }
 
-func outputText(results []fileutils.FileInfo) {
+func outputText(results []fileops.FileInfo) {
 	for _, info := range results {
 		fmt.Printf("--- File Metadata ---\n")
 		fmt.Printf("Filename: %s\n", info.Filename)
