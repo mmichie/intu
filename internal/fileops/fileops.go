@@ -1,5 +1,3 @@
-// File: internal/fileops/fileops.go
-
 package fileops
 
 import (
@@ -29,8 +27,20 @@ type FileInfo struct {
 	MD5Checksum  string    `json:"md5_checksum,omitempty"`
 }
 
-// FindFiles finds all files matching the given pattern
-func FindFiles(pattern string, options Options) ([]string, error) {
+type FileOperator interface {
+	FindFiles(pattern string, options Options) ([]string, error)
+	ReadFile(path string) (string, error)
+	GetBasicFileInfo(path string, content string) (FileInfo, error)
+	GetExtendedFileInfo(path string, content string) (FileInfo, error)
+}
+
+type LocalFileOperator struct{}
+
+func NewFileOperator() FileOperator {
+	return &LocalFileOperator{}
+}
+
+func (lfo *LocalFileOperator) FindFiles(pattern string, options Options) ([]string, error) {
 	var files []string
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -55,8 +65,7 @@ func FindFiles(pattern string, options Options) ([]string, error) {
 	return files, err
 }
 
-// ReadFile reads the content of a file
-func ReadFile(path string) (string, error) {
+func (lfo *LocalFileOperator) ReadFile(path string) (string, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -64,8 +73,7 @@ func ReadFile(path string) (string, error) {
 	return string(content), nil
 }
 
-// GetBasicFileInfo returns basic information about a file
-func GetBasicFileInfo(path string, content string) (FileInfo, error) {
+func (lfo *LocalFileOperator) GetBasicFileInfo(path string, content string) (FileInfo, error) {
 	return FileInfo{
 		Filename:     filepath.Base(path),
 		RelativePath: path,
@@ -74,8 +82,7 @@ func GetBasicFileInfo(path string, content string) (FileInfo, error) {
 	}, nil
 }
 
-// GetExtendedFileInfo returns extended information about a file
-func GetExtendedFileInfo(path string, content string) (FileInfo, error) {
+func (lfo *LocalFileOperator) GetExtendedFileInfo(path string, content string) (FileInfo, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return FileInfo{}, err
@@ -96,12 +103,10 @@ func GetExtendedFileInfo(path string, content string) (FileInfo, error) {
 	}, nil
 }
 
-// getFileType returns the file type based on its extension
 func getFileType(filename string) string {
 	return filepath.Ext(filename)
 }
 
-// countLines counts the number of lines in a string
 func countLines(s string) int {
 	return len(strings.Split(s, "\n"))
 }

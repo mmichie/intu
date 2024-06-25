@@ -5,6 +5,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
+GOGENERATE=$(GOCMD) generate
 
 # Binary name
 BINARY_NAME=intu
@@ -27,6 +28,9 @@ build:
 test:
 	$(GOTEST) $(ALL_PACKAGES)
 
+test-verbose:
+	$(GOTEST) -v $(ALL_PACKAGES)
+
 clean:
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
@@ -36,6 +40,9 @@ run: build
 
 deps:
 	$(GOMOD) download
+
+generate:
+	$(GOGENERATE) $(ALL_PACKAGES)
 
 # Cross compilation
 build-linux:
@@ -50,4 +57,4 @@ build-darwin:
 # Build for all platforms
 build-all: build-linux build-windows build-darwin
 
-.PHONY: all build test clean run deps build-linux build-windows build-darwin build-all
+.PHONY: all build test test-verbose clean run deps generate build-linux build-windows build-darwin build-all

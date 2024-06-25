@@ -13,7 +13,7 @@ import (
 // Client is the main client
 type Client struct {
 	Provider ai.Provider
-	FileOps  *fileops.FileOperator
+	FileOps  fileops.FileOperator
 	Filters  []filters.Filter
 }
 
