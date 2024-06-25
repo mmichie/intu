@@ -12,6 +12,7 @@ import (
 )
 
 //go:generate mockgen -destination=./mocks/mock_fileops.go -package=mocks github.com/mmichie/intu/internal/fileops FileOperator
+//go:generate mockgen -destination=./mocks/mock_ai_provider.go -package=mocks github.com/mmichie/intu/internal/ai Provider
 
 type mockFilter struct{}
 
@@ -149,4 +150,34 @@ func TestProcessFile(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, context.Canceled, err)
 	})
+}
+
+func TestGenerateCommitMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockProvider := mocks.NewMockProvider(ctrl)
+	client := &Client{
+		Provider: mockProvider,
+	}
+
+	ctx := context.Background()
+	diffOutput := "diff --git a/file.txt b/file.txt\n...\n"
+	expectedResponseContent := "feat: Add new feature X\n\nThis commit includes the following changes:\n- Implement feature X\n- Update related tests\n- Refactor existing code for better integration"
+
+	mockProvider.EXPECT().
+		GenerateResponse(ctx, gomock.Any()).
+		DoAndReturn(func(_ context.Context, prompt string) (string, error) {
+			// Check if the prompt contains the essential parts
+			assert.Contains(t, prompt, "Generate a concise git commit message")
+			assert.Contains(t, prompt, diffOutput)
+			assert.Contains(t, prompt, "Provide a short summary in the first line")
+			assert.Contains(t, prompt, "Optimize for a FAANG engineer")
+			return expectedResponseContent, nil
+		})
+
+	message, err := client.GenerateCommitMessage(ctx, diffOutput)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expectedResponseContent, message)
 }
