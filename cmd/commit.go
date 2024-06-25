@@ -1,13 +1,8 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"strings"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
@@ -22,54 +17,37 @@ var commitCmd = &cobra.Command{
 	1. Pipe git diff directly: git diff --staged | intu commit
 	2. Use in a git hook: Add 'intu commit' to your prepare-commit-msg hook
 	3. Manual input: intu commit (then type or paste the diff, press Ctrl+D when done)`,
-	Run: runCommitCommand,
+	RunE: runCommitCommand,
 }
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
 }
 
-func runCommitCommand(cmd *cobra.Command, args []string) {
-	provider, err := selectProvider(cmd)
+func runCommitCommand(cmd *cobra.Command, args []string) error {
+	provider, err := selectProvider()
 	if err != nil {
-		log.Fatalf("Error creating AI provider: %v", err)
+		return fmt.Errorf("failed to select AI provider: %w", err)
 	}
 
 	client := intu.NewClient(provider)
 
 	diffOutput, err := readInput()
 	if err != nil {
-		log.Fatalf("Error reading input: %v", err)
+		return fmt.Errorf("error reading input: %w", err)
 	}
 
 	if diffOutput == "" {
 		fmt.Println("No input received. Please provide git diff output.")
 		fmt.Println("Usage: git diff --staged | intu commit")
-		return
+		return nil
 	}
 
 	message, err := client.GenerateCommitMessage(context.Background(), diffOutput)
 	if err != nil {
-		log.Fatalf("Error generating commit message: %v", err)
+		return fmt.Errorf("error generating commit message: %w", err)
 	}
 
 	fmt.Println(message)
-}
-
-func readInput() (string, error) {
-	var input strings.Builder
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return "", err
-		}
-		input.WriteString(line)
-	}
-
-	return input.String(), nil
+	return nil
 }

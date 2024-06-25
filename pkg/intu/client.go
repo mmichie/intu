@@ -31,7 +31,11 @@ func (c *Client) AddFilter(filter filters.Filter) {
 // GenerateCommitMessage generates a commit message based on the provided diff
 func (c *Client) GenerateCommitMessage(ctx context.Context, diffOutput string) (string, error) {
 	prompt := generateCommitPrompt(diffOutput)
-	return c.Provider.GenerateResponse(ctx, prompt)
+	message, err := c.Provider.GenerateResponse(ctx, prompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate commit message: %w", err)
+	}
+	return message, nil
 }
 
 // CatFiles processes files matching the given pattern
@@ -43,15 +47,15 @@ func (c *Client) CatFiles(ctx context.Context, pattern string, options fileutils
 
 	var wg sync.WaitGroup
 	results := make([]fileutils.FileInfo, len(files))
-	errors := make(chan error, len(files))
+	errs := make([]error, len(files))
 
 	for i, file := range files {
 		wg.Add(1)
 		go func(i int, file string) {
 			defer wg.Done()
-			info, err := c.processFile(file, options.Extended)
+			info, err := c.processFile(ctx, file, options.Extended)
 			if err != nil {
-				errors <- fmt.Errorf("error processing %s: %w", file, err)
+				errs[i] = fmt.Errorf("error processing %s: %w", file, err)
 				return
 			}
 			results[i] = info
@@ -59,29 +63,50 @@ func (c *Client) CatFiles(ctx context.Context, pattern string, options fileutils
 	}
 
 	wg.Wait()
-	close(errors)
 
-	if len(errors) > 0 {
-		return results, <-errors
+	// Collect all non-nil errors
+	var processErrors []error
+	for _, err := range errs {
+		if err != nil {
+			processErrors = append(processErrors, err)
+		}
+	}
+
+	if len(processErrors) > 0 {
+		return results, fmt.Errorf("errors occurred while processing files: %v", processErrors)
 	}
 
 	return results, nil
 }
 
-func (c *Client) processFile(file string, extended bool) (fileutils.FileInfo, error) {
+func (c *Client) processFile(ctx context.Context, file string, extended bool) (fileutils.FileInfo, error) {
 	content, err := fileutils.ReadFile(file)
 	if err != nil {
-		return fileutils.FileInfo{}, err
+		return fileutils.FileInfo{}, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	for _, filter := range c.Filters {
-		content = filter.Process(content)
+		select {
+		case <-ctx.Done():
+			return fileutils.FileInfo{}, ctx.Err()
+		default:
+			content = filter.Process(content)
+		}
 	}
 
+	var info fileutils.FileInfo
+	var infoErr error
 	if extended {
-		return fileutils.GetExtendedFileInfo(file, content)
+		info, infoErr = fileutils.GetExtendedFileInfo(file, content)
+	} else {
+		info, infoErr = fileutils.GetBasicFileInfo(file, content)
 	}
-	return fileutils.GetBasicFileInfo(file, content)
+
+	if infoErr != nil {
+		return fileutils.FileInfo{}, fmt.Errorf("failed to get file info: %w", infoErr)
+	}
+
+	return info, nil
 }
 
 func generateCommitPrompt(diffOutput string) string {

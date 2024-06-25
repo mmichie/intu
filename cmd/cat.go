@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
-	"github.com/mmichie/intu/internal/ai"
 	"github.com/mmichie/intu/internal/fileutils"
 	"github.com/mmichie/intu/internal/filters"
 	"github.com/mmichie/intu/pkg/intu"
@@ -23,7 +21,7 @@ var catCmd = &cobra.Command{
 	Use:   "cat [file...]",
 	Short: "Concatenate and display file contents",
 	Long:  `Display contents of files with optional filters applied to transform the text.`,
-	Run:   runCatCommand,
+	RunE:  runCatCommand,
 }
 
 func init() {
@@ -37,10 +35,9 @@ func init() {
 	catCmd.Flags().BoolVarP(&extendedMetadata, "extended", "e", false, "Display extended metadata")
 }
 
-func runCatCommand(cmd *cobra.Command, args []string) {
+func runCatCommand(cmd *cobra.Command, args []string) error {
 	if listFilters {
-		listAvailableFilters()
-		return
+		return listAvailableFilters()
 	}
 
 	recursive, _ := cmd.Flags().GetBool("recursive")
@@ -58,9 +55,9 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 		pattern = "*"
 	}
 
-	provider, err := selectProvider(cmd)
+	provider, err := selectProvider()
 	if err != nil {
-		log.Fatalf("Error creating AI provider: %v", err)
+		return fmt.Errorf("failed to select AI provider: %w", err)
 	}
 
 	client := intu.NewClient(provider)
@@ -82,39 +79,28 @@ func runCatCommand(cmd *cobra.Command, args []string) {
 
 	results, err := client.CatFiles(context.Background(), pattern, options)
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+		return fmt.Errorf("error processing files: %w", err)
 	}
 
 	if len(results) == 0 {
 		fmt.Println("No files found matching the pattern.")
-		return
+		return nil
 	}
 
 	if jsonOutput {
-		outputJSON(results)
-	} else {
-		outputText(results)
+		return outputJSON(results)
 	}
+	outputText(results)
+	return nil
 }
 
-func selectProvider(cmd *cobra.Command) (ai.Provider, error) {
-	providerName, _ := cmd.Flags().GetString("provider")
-	switch providerName {
-	case "openai":
-		return ai.NewOpenAIProvider()
-	case "claude":
-		return ai.NewClaudeAIProvider()
-	default:
-		return ai.NewOpenAIProvider()
-	}
-}
-
-func outputJSON(results []fileutils.FileInfo) {
+func outputJSON(results []fileutils.FileInfo) error {
 	jsonResult, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		log.Fatalf("Error converting to JSON: %v", err)
+		return fmt.Errorf("error converting to JSON: %w", err)
 	}
 	fmt.Println(string(jsonResult))
+	return nil
 }
 
 func outputText(results []fileutils.FileInfo) {
@@ -141,9 +127,10 @@ func outputText(results []fileutils.FileInfo) {
 	}
 }
 
-func listAvailableFilters() {
+func listAvailableFilters() error {
 	fmt.Println("Available Filters:")
 	for name := range filters.Registry {
 		fmt.Printf("- %s\n", name)
 	}
+	return nil
 }
