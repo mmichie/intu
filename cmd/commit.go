@@ -1,53 +1,46 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/mmichie/intu/pkg/intu"
+	"github.com/mmichie/intu/pkg/prompts"
 	"github.com/spf13/cobra"
 )
 
-var commitCmd = &cobra.Command{
-	Use:   "commit",
-	Short: "Generate a commit message",
-	Long: `Generate a commit message based on the provided git diff.
-	
-	This command can be used in several ways:
-	1. Pipe git diff directly: git diff --staged | intu commit
-	2. Use in a git hook: Add 'intu commit' to your prepare-commit-msg hook
-	3. Manual input: intu commit (then type or paste the diff, press Ctrl+D when done)`,
-	RunE: runCommitCommand,
-}
-
-func init() {
-	rootCmd.AddCommand(commitCmd)
-}
-
 func runCommitCommand(cmd *cobra.Command, args []string) error {
-	provider, err := selectProvider()
-	if err != nil {
-		return fmt.Errorf("failed to select AI provider: %w", err)
-	}
-
-	client := intu.NewClient(provider)
-
+	// Read input from stdin
 	diffOutput, err := readInput()
 	if err != nil {
 		return fmt.Errorf("error reading input: %w", err)
 	}
 
+	// If there's no input, inform the user and exit
 	if diffOutput == "" {
 		fmt.Println("No input received. Please provide git diff output.")
 		fmt.Println("Usage: git diff --staged | intu commit")
 		return nil
 	}
 
-	message, err := client.GenerateCommitMessage(context.Background(), diffOutput)
+	// Select the AI provider
+	provider, err := selectProvider()
+	if err != nil {
+		return fmt.Errorf("failed to select AI provider: %w", err)
+	}
+
+	// Create the client
+	client := intu.NewClient(provider)
+
+	// Get the commit prompt
+	commitPrompt := prompts.Commit
+
+	// Generate the commit message
+	message, err := client.ProcessWithAI(cmd.Context(), diffOutput, commitPrompt.Format(diffOutput))
 	if err != nil {
 		return fmt.Errorf("error generating commit message: %w", err)
 	}
 
+	// Print the generated commit message
 	fmt.Println(message)
 	return nil
 }

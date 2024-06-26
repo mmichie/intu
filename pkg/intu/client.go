@@ -25,6 +25,10 @@ func NewClient(provider ai.Provider) *Client {
 	}
 }
 
+func (c *Client) ProcessWithAI(ctx context.Context, input, prompt string) (string, error) {
+	return c.Provider.GenerateResponse(ctx, prompt)
+}
+
 // AddFilter adds a filter to the client
 func (c *Client) AddFilter(filter filters.Filter) {
 	c.Filters = append(c.Filters, filter)
