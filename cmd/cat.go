@@ -7,7 +7,6 @@ import (
 
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
-	"github.com/mmichie/intu/pkg/intu"
 	"github.com/spf13/cobra"
 )
 
@@ -55,17 +54,13 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		pattern = "*"
 	}
 
-	provider, err := selectProvider()
-	if err != nil {
-		return fmt.Errorf("failed to select AI provider: %w", err)
-	}
+	fileOps := fileops.NewFileOperator()
 
-	client := intu.NewClient(provider)
-
-	// Add filters to the client
+	// Create a slice to hold the filters
+	var appliedFilters []filters.Filter
 	for _, name := range filterNames {
 		if filter := filters.Get(name); filter != nil {
-			client.AddFilter(filter)
+			appliedFilters = append(appliedFilters, filter)
 		} else {
 			fmt.Printf("Warning: No filter found with name '%s'\n", name)
 		}
@@ -77,7 +72,7 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		Ignore:    ignorePatterns,
 	}
 
-	results, err := client.CatFiles(context.Background(), pattern, options)
+	results, err := processFiles(context.Background(), fileOps, pattern, options, appliedFilters)
 	if err != nil {
 		return fmt.Errorf("error processing files: %w", err)
 	}
@@ -92,6 +87,39 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 	}
 	outputText(results)
 	return nil
+}
+
+func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern string, options fileops.Options, filters []filters.Filter) ([]fileops.FileInfo, error) {
+	files, err := fileOps.FindFiles(pattern, options)
+	if err != nil {
+		return nil, fmt.Errorf("error finding files: %w", err)
+	}
+
+	var results []fileops.FileInfo
+	for _, file := range files {
+		content, err := fileOps.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("error reading file %s: %w", file, err)
+		}
+
+		for _, filter := range filters {
+			content = filter.Process(content)
+		}
+
+		var info fileops.FileInfo
+		if options.Extended {
+			info, err = fileOps.GetExtendedFileInfo(file, content)
+		} else {
+			info, err = fileOps.GetBasicFileInfo(file, content)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error getting file info for %s: %w", file, err)
+		}
+
+		results = append(results, info)
+	}
+
+	return results, nil
 }
 
 func outputJSON(results []fileops.FileInfo) error {
