@@ -48,13 +48,22 @@ generate:
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
 
+build-linux-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PACKAGE)
+
 build-windows:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
+
+build-windows-arm64:
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(MAIN_PACKAGE)
 
 build-darwin:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PACKAGE)
 
-# Build for all platforms
-build-all: build-linux build-windows build-darwin
+build-darwin-arm64:
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
 
-.PHONY: all build test test-verbose clean run deps generate build-linux build-windows build-darwin build-all
+# Build for all platforms
+build-all: build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64
+
+.PHONY: all build test test-verbose clean run deps generate build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64 build-all
