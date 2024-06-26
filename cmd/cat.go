@@ -3,7 +3,10 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
@@ -11,8 +14,12 @@ import (
 )
 
 var (
-	listFilters      bool
+	recursive        bool
+	jsonOutput       bool
+	pattern          string
+	filterNames      []string
 	ignorePatterns   []string
+	listFilters      bool
 	extendedMetadata bool
 )
 
@@ -25,46 +32,29 @@ var catCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(catCmd)
-	catCmd.Flags().BoolP("recursive", "r", false, "Recursively search for files")
-	catCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
-	catCmd.Flags().StringP("pattern", "p", "", `File pattern to match (e.g., "*.go")`)
-	catCmd.Flags().StringSliceP("filters", "f", []string{}, "List of filters to apply (comma-separated)")
-	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", []string{}, "Patterns to ignore (can be specified multiple times)")
+	catCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively search for files")
+	catCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
+	catCmd.Flags().StringVarP(&pattern, "pattern", "p", "", `File pattern to match (e.g., "*.go")`)
+	catCmd.Flags().StringSliceVarP(&filterNames, "filters", "f", nil, "List of filters to apply (comma-separated)")
+	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", nil, "Patterns to ignore (can be specified multiple times)")
 	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
 	catCmd.Flags().BoolVarP(&extendedMetadata, "extended", "e", false, "Display extended metadata")
 }
 
 func runCatCommand(cmd *cobra.Command, args []string) error {
 	if listFilters {
-		return listAvailableFilters()
+		return listAvailableFilters(os.Stdout)
 	}
 
-	recursive, _ := cmd.Flags().GetBool("recursive")
-	jsonOutput, _ := cmd.Flags().GetBool("json")
-	pattern, _ := cmd.Flags().GetString("pattern")
-	filterNames, _ := cmd.Flags().GetStringSlice("filters")
-
-	// If no pattern is provided via flag, use the first argument as pattern
 	if pattern == "" && len(args) > 0 {
 		pattern = args[0]
 	}
-
-	// If still no pattern, default to "*"
 	if pattern == "" {
 		pattern = "*"
 	}
 
 	fileOps := fileops.NewFileOperator()
-
-	// Create a slice to hold the filters
-	var appliedFilters []filters.Filter
-	for _, name := range filterNames {
-		if filter := filters.Get(name); filter != nil {
-			appliedFilters = append(appliedFilters, filter)
-		} else {
-			fmt.Printf("Warning: No filter found with name '%s'\n", name)
-		}
-	}
+	appliedFilters := getAppliedFilters(filterNames)
 
 	options := fileops.Options{
 		Recursive: recursive,
@@ -72,20 +62,20 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		Ignore:    ignorePatterns,
 	}
 
-	results, err := processFiles(context.Background(), fileOps, pattern, options, appliedFilters)
+	results, err := processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
 	if err != nil {
 		return fmt.Errorf("error processing files: %w", err)
 	}
 
 	if len(results) == 0 {
-		fmt.Println("No files found matching the pattern.")
+		fmt.Fprintln(os.Stderr, "No files found matching the pattern.")
 		return nil
 	}
 
 	if jsonOutput {
-		return outputJSON(results)
+		return outputJSON(os.Stdout, results)
 	}
-	outputText(results)
+	outputText(os.Stdout, results)
 	return nil
 }
 
@@ -97,68 +87,86 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 
 	var results []fileops.FileInfo
 	for _, file := range files {
-		content, err := fileOps.ReadFile(file)
-		if err != nil {
-			return nil, fmt.Errorf("error reading file %s: %w", file, err)
+		select {
+		case <-ctx.Done():
+			return results, ctx.Err()
+		default:
+			info, err := processFile(fileOps, file, options.Extended, filters)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, info)
 		}
-
-		for _, filter := range filters {
-			content = filter.Process(content)
-		}
-
-		var info fileops.FileInfo
-		if options.Extended {
-			info, err = fileOps.GetExtendedFileInfo(file, content)
-		} else {
-			info, err = fileOps.GetBasicFileInfo(file, content)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("error getting file info for %s: %w", file, err)
-		}
-
-		results = append(results, info)
 	}
 
 	return results, nil
 }
 
-func outputJSON(results []fileops.FileInfo) error {
-	jsonResult, err := json.MarshalIndent(results, "", "  ")
+func processFile(fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
+	content, err := fileOps.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("error converting to JSON: %w", err)
+		return fileops.FileInfo{}, fmt.Errorf("error reading file %s: %w", file, err)
 	}
-	fmt.Println(string(jsonResult))
-	return nil
+
+	for _, filter := range filters {
+		content = filter.Process(content)
+	}
+
+	if extended {
+		return fileOps.GetExtendedFileInfo(file, content)
+	}
+	return fileOps.GetBasicFileInfo(file, content)
 }
 
-func outputText(results []fileops.FileInfo) {
+func getAppliedFilters(names []string) []filters.Filter {
+	var appliedFilters []filters.Filter
+	for _, name := range names {
+		if filter := filters.Get(name); filter != nil {
+			appliedFilters = append(appliedFilters, filter)
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: No filter found with name '%s'\n", name)
+		}
+	}
+	return appliedFilters
+}
+
+func outputJSON(w io.Writer, results []fileops.FileInfo) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(results)
+}
+
+func outputText(w io.Writer, results []fileops.FileInfo) {
 	for _, info := range results {
-		fmt.Printf("--- File Metadata ---\n")
-		fmt.Printf("Filename: %s\n", info.Filename)
-		fmt.Printf("Relative Path: %s\n", info.RelativePath)
-		fmt.Printf("File Type: %s\n", info.FileType)
+		fmt.Fprintf(w, "--- File Metadata ---\n")
+		fmt.Fprintf(w, "Filename: %s\n", info.Filename)
+		fmt.Fprintf(w, "Relative Path: %s\n", info.RelativePath)
+		fmt.Fprintf(w, "File Type: %s\n", info.FileType)
 		if info.FileSize > 0 {
-			fmt.Printf("File Size: %d bytes\n", info.FileSize)
+			fmt.Fprintf(w, "File Size: %d bytes\n", info.FileSize)
 		}
 		if !info.LastModified.IsZero() {
-			fmt.Printf("Last Modified: %s\n", info.LastModified)
+			fmt.Fprintf(w, "Last Modified: %s\n", info.LastModified)
 		}
 		if info.LineCount > 0 {
-			fmt.Printf("Line Count: %d\n", info.LineCount)
+			fmt.Fprintf(w, "Line Count: %d\n", info.LineCount)
 		}
 		if info.MD5Checksum != "" {
-			fmt.Printf("MD5 Checksum: %s\n", info.MD5Checksum)
+			fmt.Fprintf(w, "MD5 Checksum: %s\n", info.MD5Checksum)
 		}
-		fmt.Printf("--- File Contents ---\n")
-		fmt.Println(info.Content)
-		fmt.Println()
+		fmt.Fprintf(w, "--- File Contents ---\n")
+		fmt.Fprintln(w, info.Content)
+		fmt.Fprintln(w)
 	}
 }
 
-func listAvailableFilters() error {
-	fmt.Println("Available Filters:")
+func listAvailableFilters(w io.Writer) error {
+	if len(filters.Registry) == 0 {
+		return errors.New("no filters available")
+	}
+	fmt.Fprintln(w, "Available Filters:")
 	for name := range filters.Registry {
-		fmt.Printf("- %s\n", name)
+		fmt.Fprintf(w, "- %s\n", name)
 	}
 	return nil
 }
