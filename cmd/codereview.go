@@ -59,7 +59,10 @@ func runCodeReviewCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	// Extract the review comments from the result
-	reviewComments := extractReviewComments(result)
+	reviewComments, err := intu.ParseReviewComments(result)
+	if err != nil {
+		return fmt.Errorf("error parsing review comments: %w", err)
+	}
 
 	// Print the generated code review comments
 	fmt.Println(reviewComments)

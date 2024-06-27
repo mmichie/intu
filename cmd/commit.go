@@ -2,12 +2,22 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
 	"github.com/spf13/cobra"
 )
+
+var commitCmd = &cobra.Command{
+	Use:   "commit",
+	Short: "Generate a commit message",
+	Long:  `Generate a commit message based on the git diff output.`,
+	RunE:  runCommitCommand,
+}
+
+func init() {
+	rootCmd.AddCommand(commitCmd)
+}
 
 func runCommitCommand(cmd *cobra.Command, args []string) error {
 	// Read input from stdin
@@ -51,18 +61,13 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	// Extract the commit message from the result
-	commitMessage := extractCommitMessage(result)
-
-	// Print the generated commit message
-	fmt.Println(commitMessage)
-	return nil
-}
-
-func extractCommitMessage(result string) string {
-	start := strings.Index(result, "<commit_message>")
-	end := strings.Index(result, "</commit_message>")
-	if start != -1 && end != -1 {
-		return strings.TrimSpace(result[start+len("<commit_message>") : end])
+	commitMessage, err := intu.ParseCommitMessage(result)
+	if err != nil {
+		return fmt.Errorf("error parsing commit message: %w", err)
 	}
-	return result // Return the full result if tags are not found
+
+	// Print only the parsed commit message
+	fmt.Print(commitMessage)
+
+	return nil
 }
