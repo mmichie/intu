@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
@@ -35,12 +36,24 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	commitPrompt := prompts.Commit
 
 	// Generate the commit message
-	message, err := client.ProcessWithAI(cmd.Context(), diffOutput, commitPrompt.Format(diffOutput))
+	result, err := client.ProcessWithAI(cmd.Context(), diffOutput, commitPrompt.Format(diffOutput))
 	if err != nil {
 		return fmt.Errorf("error generating commit message: %w", err)
 	}
 
+	// Extract the commit message from the result
+	commitMessage := extractCommitMessage(result)
+
 	// Print the generated commit message
-	fmt.Println(message)
+	fmt.Println(commitMessage)
 	return nil
+}
+
+func extractCommitMessage(result string) string {
+	start := strings.Index(result, "<commit_message>")
+	end := strings.Index(result, "</commit_message>")
+	if start != -1 && end != -1 {
+		return strings.TrimSpace(result[start+len("<commit_message>") : end])
+	}
+	return result // Return the full result if tags are not found
 }

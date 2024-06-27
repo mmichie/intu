@@ -1,6 +1,8 @@
 package prompts
 
-import "fmt"
+import (
+	"strings"
+)
 
 type Prompt struct {
 	Name        string
@@ -9,22 +11,40 @@ type Prompt struct {
 }
 
 func (p Prompt) Format(input string) string {
-	return fmt.Sprintf(p.Template, input)
+	return strings.Replace(p.Template, "{{CHANGES}}", input, 1)
 }
 
 var (
 	Commit = Prompt{
 		Name:        "commit",
 		Description: "Generate a git commit message",
-		Template: `Generate a concise git commit message in conventional style for the following diff:
-
-%s
-
-Provide a short summary in the first line, followed by a blank line and a more detailed description using bullet points.
-Optimize for a FAANG engineer experienced with the code. Keep line width to about 79 characters.`,
+		Template: `You are tasked with writing a git commit message using the conventional style. Conventional commit messages have a specific structure that includes a type, an optional scope, and a description. The format is as follows: <type>[optional scope]: <description>
+Here are the changes made in this commit:
+<changes>
+{{CHANGES}}
+</changes>
+Analyze the changes provided above. Determine the primary purpose of these changes (e.g., fixing a bug, adding a feature, refactoring code, etc.).
+Based on your analysis, select the most appropriate type prefix from the following list:
+- feat: A new feature
+- fix: A bug fix
+- docs: Documentation only changes
+- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- refactor: A code change that neither fixes a bug nor adds a feature
+- perf: A code change that improves performance
+- test: Adding missing tests or correcting existing tests
+- build: Changes that affect the build system or external dependencies
+- ci: Changes to our CI configuration files and scripts
+- chore: Other changes that don't modify src or test files
+Next, write a concise description (50 characters or less) that summarizes the change. The description should:
+- Use the imperative mood ("Add feature" not "Added feature" or "Adds feature")
+- Not capitalize the first letter
+- Not end with a period
+Your commit message should follow this format:
+<type>: <description>
+Now, write the commit message for the changes provided, following the conventional style and format described above. Place your commit message inside <commit_message> tags.`,
 	}
 
-	// Add more pre-canned prompts here
+	// Keep the existing Summarize and Readme prompts
 	Summarize = Prompt{
 		Name:        "summarize",
 		Description: "Summarize the given text",
