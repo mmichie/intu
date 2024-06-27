@@ -44,7 +44,6 @@ Your commit message should follow this format:
 Now, write the commit message for the changes provided, following the conventional style and format described above. Place your commit message inside <commit_message> tags.`,
 	}
 
-	// Keep the existing Summarize and Readme prompts
 	Summarize = Prompt{
 		Name:        "summarize",
 		Description: "Summarize the given text",
