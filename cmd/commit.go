@@ -10,7 +10,7 @@ import (
 
 func runCommitCommand(cmd *cobra.Command, args []string) error {
 	// Read input from stdin
-	diffOutput, err := readInput()
+	diffOutput, err := readInput(args)
 	if err != nil {
 		return fmt.Errorf("error reading input: %w", err)
 	}

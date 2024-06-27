@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -16,20 +15,23 @@ func selectProvider() (ai.Provider, error) {
 	return ai.SelectProvider(providerName)
 }
 
-func readInput() (string, error) {
-	var input strings.Builder
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		line, err := reader.ReadString('\n')
+func readInput(args []string) (string, error) {
+	// Check if there's input from stdin
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// Data is being piped to stdin
+		bytes, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", fmt.Errorf("error reading from stdin: %w", err)
 		}
-		input.WriteString(line)
+		return strings.TrimSpace(string(bytes)), nil
 	}
 
-	return input.String(), nil
+	// If no stdin input, use args if provided
+	if len(args) > 0 {
+		return strings.Join(args, " "), nil
+	}
+
+	// No input provided
+	return "", nil
 }

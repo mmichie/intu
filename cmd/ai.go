@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
@@ -52,37 +49,23 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unknown prompt: %s", promptName)
 	}
 
-	// Read input from stdin
-	input, err := ioutil.ReadAll(os.Stdin)
+	input, err := readInput(args[1:])
 	if err != nil {
-		return fmt.Errorf("error reading input: %w", err)
+		return err
 	}
 
-	return processWithAI(cmd, string(input), prompt.Format(string(input)))
+	return processWithAI(cmd, input, prompt.Format(input))
 }
 
 func runAskCommand(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("prompt is required")
+	}
+
 	prompt := args[0]
-	var input string
-
-	// Check if input is provided as an argument
-	if len(args) > 1 {
-		input = strings.Join(args[1:], " ")
-	} else {
-		// If no input argument, try reading from stdin
-		stdinInfo, err := os.Stdin.Stat()
-		if err != nil {
-			return fmt.Errorf("error checking stdin: %w", err)
-		}
-
-		if (stdinInfo.Mode() & os.ModeCharDevice) == 0 {
-			// Data is being piped to stdin
-			stdinData, err := ioutil.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("error reading from stdin: %w", err)
-			}
-			input = string(stdinData)
-		}
+	input, err := readInput(args[1:])
+	if err != nil {
+		return fmt.Errorf("error reading input: %w", err)
 	}
 
 	return processWithAI(cmd, input, prompt)
@@ -96,8 +79,11 @@ func processWithAI(cmd *cobra.Command, input, prompt string) error {
 	}
 	client := intu.NewClient(provider)
 
+	// Combine prompt and input
+	fullPrompt := fmt.Sprintf("%s\n\nInput: %s", prompt, input)
+
 	// Process input with AI
-	result, err := client.ProcessWithAI(cmd.Context(), input, prompt)
+	result, err := client.ProcessWithAI(cmd.Context(), input, fullPrompt)
 	if err != nil {
 		return fmt.Errorf("error processing with AI: %w", err)
 	}
