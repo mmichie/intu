@@ -11,7 +11,16 @@ type Prompt struct {
 }
 
 func (p Prompt) Format(input string) string {
-	return strings.Replace(p.Template, "{{CHANGES}}", input, 1)
+	switch p.Name {
+	case "commit":
+		return strings.Replace(p.Template, "{{CHANGES}}", input, 1)
+	case "summarize":
+		return strings.Replace(p.Template, "{{TEXT_TO_SUMMARIZE}}", input, 1)
+	case "readme":
+		return strings.Replace(p.Template, "{{CODE}}", input, 1)
+	default:
+		return p.Template
+	}
 }
 
 var (
@@ -47,29 +56,52 @@ Now, write the commit message for the changes provided, following the convention
 	Summarize = Prompt{
 		Name:        "summarize",
 		Description: "Summarize the given text",
-		Template: `Provide a concise summary of the following text:
-
-%s
-
-The summary should capture the main points and be no longer than 3-4 sentences.`,
+		Template: `You are tasked with summarizing a given text. Here is the text you need to summarize:
+<text_to_summarize>
+{{TEXT_TO_SUMMARIZE}}
+</text_to_summarize>
+Please provide a concise summary of the above text. Your summary should:
+1. Capture the main points and key ideas of the original text
+2. Be no longer than 3-4 sentences
+3. Be written in your own words (do not copy sentences directly from the original text)
+4. Maintain the overall tone and intent of the original text
+Focus on the most important information and central themes. Avoid including minor details or examples unless they are crucial to understanding the main points.
+Present your final summary within <summary> tags. Before writing your summary, you may use <scratchpad> tags to organize your thoughts if needed, but this is optional for simpler texts.
+Remember, the goal is to create a clear, concise, and accurate representation of the original text that can be quickly understood by a reader.`,
 	}
 
 	Readme = Prompt{
 		Name:        "readme",
 		Description: "Generate a README from code",
-		Template: `Generate a README.md file for a project based on the following code:
-
-%s
-
-Include sections for:
-1. Project Title
-2. Brief Description
-3. Installation
-4. Usage
-5. Main Features
-6. Dependencies (if any can be inferred from the code)
-
-Use markdown formatting and keep it concise but informative.`,
+		Template: `You are tasked with generating a README.md file for a project based on the provided code. Here's the code you'll be working with:
+<code>
+{{CODE}}
+</code>
+Your goal is to create a comprehensive yet concise README.md file that effectively communicates the project's purpose, functionality, and usage. Follow these instructions carefully:
+1. Analyze the provided code to understand the project's main features, functionality, and purpose.
+2. Create a README.md file with the following sections:
+   a. Project Title
+   b. Brief Description
+   c. Installation
+   d. Usage
+   e. Main Features
+   f. Dependencies (if any can be inferred from the code)
+3. Use proper markdown formatting throughout the README. This includes:
+   - Using # for the main title
+   - Using ## for section headers
+   - Using ''' for code blocks
+   - Using * or - for bullet points
+   - Using ** for bold text when emphasizing important points
+4. Keep the content informative but concise. Aim for clarity and brevity.
+5. For the Project Title, use the name of the main function or class if apparent, or create a descriptive title based on the code's functionality.
+6. In the Brief Description, summarize the main purpose and functionality of the code in 2-3 sentences.
+7. For the Installation section, provide basic instructions on how to set up the project. If no specific installation steps are evident, you can include a generic instruction like "Clone the repository and install the required dependencies."
+8. In the Usage section, provide examples of how to use the main functions or classes in the code. Use code blocks to illustrate these examples.
+9. List the Main Features of the project based on the functions and classes you identify in the code.
+10. If you can infer any dependencies from the code (e.g., imported libraries), list them in the Dependencies section. If no dependencies are apparent, you can omit this section.
+11. If the purpose of certain parts of the code is not clear, it's okay to make reasonable assumptions, but avoid speculating too much.
+12. After analyzing the code and preparing your README content, present your complete README.md file within <readme> tags.
+Remember, the goal is to create a README that would be helpful for someone encountering this project for the first time. Focus on clarity, conciseness, and providing useful information based on the available code.`,
 	}
 )
 
