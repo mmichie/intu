@@ -33,10 +33,19 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	client := intu.NewClient(provider)
 
 	// Get the commit prompt
-	commitPrompt := prompts.Commit
+	commitPrompt, ok := prompts.GetPrompt("commit")
+	if !ok {
+		return fmt.Errorf("commit prompt not found")
+	}
+
+	// Format the prompt with the diff output
+	formattedPrompt, err := commitPrompt.Format(diffOutput)
+	if err != nil {
+		return fmt.Errorf("error formatting prompt: %w", err)
+	}
 
 	// Generate the commit message
-	result, err := client.ProcessWithAI(cmd.Context(), diffOutput, commitPrompt.Format(diffOutput))
+	result, err := client.ProcessWithAI(cmd.Context(), diffOutput, formattedPrompt)
 	if err != nil {
 		return fmt.Errorf("error generating commit message: %w", err)
 	}

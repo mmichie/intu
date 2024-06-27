@@ -41,10 +41,19 @@ func runCodeReviewCommand(cmd *cobra.Command, args []string) error {
 	client := intu.NewClient(provider)
 
 	// Get the code review prompt
-	codeReviewPrompt := prompts.CodeReview
+	codeReviewPrompt, ok := prompts.GetPrompt("codereview")
+	if !ok {
+		return fmt.Errorf("code review prompt not found")
+	}
+
+	// Format the prompt with the file content
+	formattedPrompt, err := codeReviewPrompt.Format(content)
+	if err != nil {
+		return fmt.Errorf("error formatting prompt: %w", err)
+	}
 
 	// Generate the code review
-	result, err := client.ProcessWithAI(cmd.Context(), content, codeReviewPrompt.Format(content))
+	result, err := client.ProcessWithAI(cmd.Context(), content, formattedPrompt)
 	if err != nil {
 		return fmt.Errorf("error generating code review: %w", err)
 	}
