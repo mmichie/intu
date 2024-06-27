@@ -10,19 +10,6 @@ type Prompt struct {
 	Template    string
 }
 
-func (p Prompt) Format(input string) string {
-	switch p.Name {
-	case "commit":
-		return strings.Replace(p.Template, "{{CHANGES}}", input, 1)
-	case "summarize":
-		return strings.Replace(p.Template, "{{TEXT_TO_SUMMARIZE}}", input, 1)
-	case "readme":
-		return strings.Replace(p.Template, "{{CODE}}", input, 1)
-	default:
-		return p.Template
-	}
-}
-
 var (
 	Commit = Prompt{
 		Name:        "commit",
@@ -103,9 +90,37 @@ Your goal is to create a comprehensive yet concise README.md file that effective
 12. After analyzing the code and preparing your README content, present your complete README.md file within <readme> tags.
 Remember, the goal is to create a README that would be helpful for someone encountering this project for the first time. Focus on clarity, conciseness, and providing useful information based on the available code.`,
 	}
+
+	CodeReview = Prompt{
+		Name:        "codereview",
+		Description: "Generate code review comments",
+		Template: `You are an experienced software developer tasked with reviewing the following code:
+
+<code_to_review>
+{{CODE_TO_REVIEW}}
+</code_to_review>
+
+Please provide a thorough code review, considering the following aspects:
+1. Code quality and readability
+2. Potential bugs or errors
+3. Performance considerations
+4. Adherence to best practices and design principles
+5. Suggestions for improvement
+
+For each issue or suggestion, please:
+1. Specify the line number or code snippet in question
+2. Explain the issue or suggestion clearly
+3. Provide a recommendation for improvement, if applicable
+
+Your review should be constructive and aimed at improving the code. Be specific in your feedback and explain the reasoning behind your suggestions.
+
+Present your code review comments within <review_comments> tags. You may use markdown formatting for better readability.
+
+Remember, the goal is to provide valuable feedback that will help improve the quality of the code and the skills of the developer.`,
+	}
 )
 
-var AllPrompts = []Prompt{Commit, Summarize, Readme}
+var AllPrompts = []Prompt{Commit, Summarize, Readme, CodeReview}
 
 func GetPrompt(name string) (Prompt, bool) {
 	for _, p := range AllPrompts {
@@ -114,4 +129,20 @@ func GetPrompt(name string) (Prompt, bool) {
 		}
 	}
 	return Prompt{}, false
+}
+
+// Update the Format method to include the new prompt
+func (p Prompt) Format(input string) string {
+	switch p.Name {
+	case "commit":
+		return strings.Replace(p.Template, "{{CHANGES}}", input, 1)
+	case "summarize":
+		return strings.Replace(p.Template, "{{TEXT_TO_SUMMARIZE}}", input, 1)
+	case "readme":
+		return strings.Replace(p.Template, "{{CODE}}", input, 1)
+	case "codereview":
+		return strings.Replace(p.Template, "{{CODE_TO_REVIEW}}", input, 1)
+	default:
+		return p.Template
+	}
 }
