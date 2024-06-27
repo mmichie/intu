@@ -1,28 +1,19 @@
 package ai
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 )
 
 type OpenAIProvider struct {
-	APIKey string
-	Model  string
+	BaseProvider
 }
 
 type openAIRequest struct {
 	Model    string    `json:"model"`
-	Messages []message `json:"messages"`
-}
-
-type message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Messages []Message `json:"messages"`
 }
 
 type openAIResponse struct {
@@ -45,50 +36,33 @@ func NewOpenAIProvider() (*OpenAIProvider, error) {
 	}
 
 	return &OpenAIProvider{
-		APIKey: apiKey,
-		Model:  model,
+		BaseProvider: BaseProvider{
+			APIKey: apiKey,
+			Model:  model,
+			URL:    "https://api.openai.com/v1/chat/completions",
+		},
 	}, nil
 }
 
 func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
 	requestBody := openAIRequest{
 		Model: p.Model,
-		Messages: []message{
+		Messages: []Message{
 			{Role: "user", Content: prompt},
 		},
 	}
 
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("error marshaling request: %w", err)
+	headers := map[string]string{
+		"Authorization": "Bearer " + p.APIKey,
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBody))
+	responseBody, err := p.sendRequest(ctx, requestBody, headers)
 	if err != nil {
-		return "", fmt.Errorf("error creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.APIKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("error sending request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("error reading response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, string(body))
+		return "", err
 	}
 
 	var openAIResp openAIResponse
-	err = json.Unmarshal(body, &openAIResp)
+	err = json.Unmarshal(responseBody, &openAIResp)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling response: %w", err)
 	}

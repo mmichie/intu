@@ -1,24 +1,20 @@
 package ai
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 )
 
 type ClaudeAIProvider struct {
-	APIKey string
-	Model  string
+	BaseProvider
 }
 
 type claudeAIRequest struct {
 	Model       string    `json:"model"`
-	Messages    []message `json:"messages"`
+	Messages    []Message `json:"messages"`
 	MaxTokens   int       `json:"max_tokens"`
 	Temperature float64   `json:"temperature"`
 }
@@ -41,53 +37,36 @@ func NewClaudeAIProvider() (*ClaudeAIProvider, error) {
 	}
 
 	return &ClaudeAIProvider{
-		APIKey: apiKey,
-		Model:  model,
+		BaseProvider: BaseProvider{
+			APIKey: apiKey,
+			Model:  model,
+			URL:    "https://api.anthropic.com/v1/messages",
+		},
 	}, nil
 }
 
 func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
 	requestBody := claudeAIRequest{
 		Model: p.Model,
-		Messages: []message{
+		Messages: []Message{
 			{Role: "user", Content: prompt},
 		},
 		MaxTokens:   1000,
 		Temperature: 0.7,
 	}
 
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("error marshaling request: %w", err)
+	headers := map[string]string{
+		"x-api-key":         p.APIKey,
+		"anthropic-version": "2023-06-01",
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(jsonBody))
+	responseBody, err := p.sendRequest(ctx, requestBody, headers)
 	if err != nil {
-		return "", fmt.Errorf("error creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", p.APIKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("error sending request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("error reading response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, string(body))
+		return "", err
 	}
 
 	var claudeAIResp claudeAIResponse
-	err = json.Unmarshal(body, &claudeAIResp)
+	err = json.Unmarshal(responseBody, &claudeAIResp)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling response: %w", err)
 	}
