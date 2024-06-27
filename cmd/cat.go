@@ -64,7 +64,10 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 
 	results, err := processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
 	if err != nil {
-		return fmt.Errorf("error processing files: %w", err)
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		if len(results) == 0 {
+			return fmt.Errorf("no files were successfully processed")
+		}
 	}
 
 	if len(results) == 0 {

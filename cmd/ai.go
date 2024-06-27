@@ -33,7 +33,11 @@ func init() {
 
 func runAICommand(cmd *cobra.Command, args []string) error {
 	// Check if the user wants to list prompts
-	if list, _ := cmd.Flags().GetBool("list"); list {
+	list, err := cmd.Flags().GetBool("list")
+	if err != nil {
+		return fmt.Errorf("error getting 'list' flag: %w", err)
+	}
+	if list {
 		return listPrompts()
 	}
 
