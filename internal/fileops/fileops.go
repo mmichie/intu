@@ -52,11 +52,14 @@ func (lfo *LocalFileOperator) FindFiles(pattern string, options Options) ([]stri
 			}
 			return nil
 		}
+
+		// Check if the file should be ignored
 		for _, ignore := range options.Ignore {
-			if matched, _ := filepath.Match(ignore, path); matched {
+			if matched, _ := filepath.Match(ignore, filepath.Base(path)); matched {
 				return nil
 			}
 		}
+
 		if matched, _ := filepath.Match(pattern, filepath.Base(path)); matched {
 			files = append(files, path)
 		}
