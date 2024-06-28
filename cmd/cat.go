@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/mmichie/intu/internal/fileops"
@@ -153,47 +154,59 @@ func outputJSON(w io.Writer, results []fileops.FileInfo) error {
 
 func outputText(w io.Writer, results []fileops.FileInfo) error {
 	for _, info := range results {
-		if _, err := fmt.Fprintf(w, "--- File Metadata ---\n"); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
+		if err := writeSection(w, "File Metadata"); err != nil {
+			return err
 		}
-		if _, err := fmt.Fprintf(w, "Filename: %s\n", info.Filename); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
+
+		fields := []struct {
+			name  string
+			value interface{}
+			cond  bool
+		}{
+			{"Filename", info.Filename, true},
+			{"Relative Path", info.RelativePath, true},
+			{"File Type", info.FileType, true},
+			{"File Size", fmt.Sprintf("%d bytes", info.FileSize), info.FileSize > 0},
+			{"Last Modified", info.LastModified.Format(time.RFC3339), !info.LastModified.IsZero()},
+			{"Line Count", info.LineCount, info.LineCount > 0},
+			{"MD5 Checksum", info.MD5Checksum, info.MD5Checksum != ""},
 		}
-		if _, err := fmt.Fprintf(w, "Relative Path: %s\n", info.RelativePath); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
-		}
-		if _, err := fmt.Fprintf(w, "File Type: %s\n", info.FileType); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
-		}
-		if info.FileSize > 0 {
-			if _, err := fmt.Fprintf(w, "File Size: %d bytes\n", info.FileSize); err != nil {
-				return fmt.Errorf("error writing to output: %w", err)
+
+		for _, field := range fields {
+			if field.cond {
+				if err := writeField(w, field.name, field.value); err != nil {
+					return err
+				}
 			}
 		}
-		if !info.LastModified.IsZero() {
-			if _, err := fmt.Fprintf(w, "Last Modified: %s\n", info.LastModified); err != nil {
-				return fmt.Errorf("error writing to output: %w", err)
-			}
+
+		if err := writeSection(w, "File Contents"); err != nil {
+			return err
 		}
-		if info.LineCount > 0 {
-			if _, err := fmt.Fprintf(w, "Line Count: %d\n", info.LineCount); err != nil {
-				return fmt.Errorf("error writing to output: %w", err)
-			}
-		}
-		if info.MD5Checksum != "" {
-			if _, err := fmt.Fprintf(w, "MD5 Checksum: %s\n", info.MD5Checksum); err != nil {
-				return fmt.Errorf("error writing to output: %w", err)
-			}
-		}
-		if _, err := fmt.Fprintf(w, "--- File Contents ---\n"); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
-		}
+
 		if _, err := fmt.Fprintln(w, info.Content); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
+			return fmt.Errorf("error writing content to output: %w", err)
 		}
+
 		if _, err := fmt.Fprintln(w); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
+			return fmt.Errorf("error writing newline to output: %w", err)
 		}
+	}
+	return nil
+}
+
+func writeSection(w io.Writer, sectionName string) error {
+	_, err := fmt.Fprintf(w, "--- %s ---\n", sectionName)
+	if err != nil {
+		return fmt.Errorf("error writing section header to output: %w", err)
+	}
+	return nil
+}
+
+func writeField(w io.Writer, fieldName string, fieldValue interface{}) error {
+	_, err := fmt.Fprintf(w, "%s: %v\n", fieldName, fieldValue)
+	if err != nil {
+		return fmt.Errorf("error writing field to output: %w", err)
 	}
 	return nil
 }
@@ -202,12 +215,12 @@ func listAvailableFilters(w io.Writer) error {
 	if len(filters.Registry) == 0 {
 		return errors.New("no filters available")
 	}
-	if _, err := fmt.Fprintln(w, "Available Filters:"); err != nil {
-		return fmt.Errorf("error writing to output: %w", err)
+	if err := writeSection(w, "Available Filters"); err != nil {
+		return err
 	}
 	for name := range filters.Registry {
-		if _, err := fmt.Fprintf(w, "- %s\n", name); err != nil {
-			return fmt.Errorf("error writing to output: %w", err)
+		if err := writeField(w, "-", name); err != nil {
+			return err
 		}
 	}
 	return nil
