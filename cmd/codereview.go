@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
@@ -67,15 +66,6 @@ func runCodeReviewCommand(cmd *cobra.Command, args []string) error {
 	// Print the generated code review comments
 	fmt.Println(reviewComments)
 	return nil
-}
-
-func extractReviewComments(result string) string {
-	start := strings.Index(result, "<review_comments>")
-	end := strings.Index(result, "</review_comments>")
-	if start != -1 && end != -1 {
-		return strings.TrimSpace(result[start+len("<review_comments>") : end])
-	}
-	return result // Return the full result if tags are not found
 }
 
 func readFile(filename string) (string, error) {
