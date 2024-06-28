@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
 	"github.com/spf13/cobra"
@@ -76,9 +77,14 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	if jsonOutput {
-		return outputJSON(os.Stdout, results)
+		if err := outputJSON(os.Stdout, results); err != nil {
+			return fmt.Errorf("error outputting JSON: %w", err)
+		}
+	} else {
+		if err := outputText(os.Stdout, results); err != nil {
+			return fmt.Errorf("error outputting text: %w", err)
+		}
 	}
-	outputText(os.Stdout, results)
 	return nil
 }
 
@@ -89,6 +95,8 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 	}
 
 	var results []fileops.FileInfo
+	var resultError error
+
 	for _, file := range files {
 		select {
 		case <-ctx.Done():
@@ -96,13 +104,14 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 		default:
 			info, err := processFile(fileOps, file, options.Extended, filters)
 			if err != nil {
-				return nil, err
+				resultError = multierror.Append(resultError, fmt.Errorf("error processing %s: %w", file, err))
+			} else {
+				results = append(results, info)
 			}
-			results = append(results, info)
 		}
 	}
 
-	return results, nil
+	return results, resultError
 }
 
 func processFile(fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
@@ -136,40 +145,70 @@ func getAppliedFilters(names []string) []filters.Filter {
 func outputJSON(w io.Writer, results []fileops.FileInfo) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(results)
+	if err := encoder.Encode(results); err != nil {
+		return fmt.Errorf("error encoding JSON: %w", err)
+	}
+	return nil
 }
 
-func outputText(w io.Writer, results []fileops.FileInfo) {
+func outputText(w io.Writer, results []fileops.FileInfo) error {
 	for _, info := range results {
-		fmt.Fprintf(w, "--- File Metadata ---\n")
-		fmt.Fprintf(w, "Filename: %s\n", info.Filename)
-		fmt.Fprintf(w, "Relative Path: %s\n", info.RelativePath)
-		fmt.Fprintf(w, "File Type: %s\n", info.FileType)
+		if _, err := fmt.Fprintf(w, "--- File Metadata ---\n"); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
+		if _, err := fmt.Fprintf(w, "Filename: %s\n", info.Filename); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
+		if _, err := fmt.Fprintf(w, "Relative Path: %s\n", info.RelativePath); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
+		if _, err := fmt.Fprintf(w, "File Type: %s\n", info.FileType); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
 		if info.FileSize > 0 {
-			fmt.Fprintf(w, "File Size: %d bytes\n", info.FileSize)
+			if _, err := fmt.Fprintf(w, "File Size: %d bytes\n", info.FileSize); err != nil {
+				return fmt.Errorf("error writing to output: %w", err)
+			}
 		}
 		if !info.LastModified.IsZero() {
-			fmt.Fprintf(w, "Last Modified: %s\n", info.LastModified)
+			if _, err := fmt.Fprintf(w, "Last Modified: %s\n", info.LastModified); err != nil {
+				return fmt.Errorf("error writing to output: %w", err)
+			}
 		}
 		if info.LineCount > 0 {
-			fmt.Fprintf(w, "Line Count: %d\n", info.LineCount)
+			if _, err := fmt.Fprintf(w, "Line Count: %d\n", info.LineCount); err != nil {
+				return fmt.Errorf("error writing to output: %w", err)
+			}
 		}
 		if info.MD5Checksum != "" {
-			fmt.Fprintf(w, "MD5 Checksum: %s\n", info.MD5Checksum)
+			if _, err := fmt.Fprintf(w, "MD5 Checksum: %s\n", info.MD5Checksum); err != nil {
+				return fmt.Errorf("error writing to output: %w", err)
+			}
 		}
-		fmt.Fprintf(w, "--- File Contents ---\n")
-		fmt.Fprintln(w, info.Content)
-		fmt.Fprintln(w)
+		if _, err := fmt.Fprintf(w, "--- File Contents ---\n"); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
+		if _, err := fmt.Fprintln(w, info.Content); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
+		if _, err := fmt.Fprintln(w); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
 	}
+	return nil
 }
 
 func listAvailableFilters(w io.Writer) error {
 	if len(filters.Registry) == 0 {
 		return errors.New("no filters available")
 	}
-	fmt.Fprintln(w, "Available Filters:")
+	if _, err := fmt.Fprintln(w, "Available Filters:"); err != nil {
+		return fmt.Errorf("error writing to output: %w", err)
+	}
 	for name := range filters.Registry {
-		fmt.Fprintf(w, "- %s\n", name)
+		if _, err := fmt.Fprintf(w, "- %s\n", name); err != nil {
+			return fmt.Errorf("error writing to output: %w", err)
+		}
 	}
 	return nil
 }
