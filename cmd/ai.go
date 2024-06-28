@@ -56,10 +56,6 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 
 	input, err := readInput(args[1:])
 	if err != nil {
-		return fmt.Errorf("error reading input: %w", err)
-	}
-
-	if err := checkEmptyInput(input); err != nil {
 		return err
 	}
 
@@ -76,22 +72,18 @@ func runAskCommand(cmd *cobra.Command, args []string) error {
 		return errors.New("prompt is required")
 	}
 
-	prompt := args[0]
+	userPrompt := args[0]
 	input, err := readInput(args[1:])
 	if err != nil {
-		return fmt.Errorf("error reading input: %w", err)
-	}
-
-	if err := checkEmptyInput(input); err != nil {
 		return err
 	}
 
 	// For the ask command, we don't use a pre-defined prompt template
 	// Instead, we use the user's prompt directly
-	return processWithAI(cmd, input, prompt)
+	return processWithAI(cmd, input, userPrompt)
 }
 
-func processWithAI(cmd *cobra.Command, input, prompt string) error {
+func processWithAI(cmd *cobra.Command, input, promptText string) error {
 	// Create AI client
 	provider, err := selectProvider()
 	if err != nil {
@@ -100,7 +92,7 @@ func processWithAI(cmd *cobra.Command, input, prompt string) error {
 	client := intu.NewClient(provider)
 
 	// Process input with AI
-	result, err := client.ProcessWithAI(cmd.Context(), input, prompt)
+	result, err := client.ProcessWithAI(cmd.Context(), input, promptText)
 	if err != nil {
 		return fmt.Errorf("error processing with AI: %w", err)
 	}
