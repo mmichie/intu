@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mmichie/intu/internal/fileops"
@@ -19,6 +20,26 @@ var (
 	pattern                                              string
 	filterNames, ignorePatterns                          []string
 )
+
+// CatCommandError is a custom error type for the cat command
+type CatCommandError struct {
+	MainError error
+	Pattern   string
+	FileCount int
+}
+
+func (e *CatCommandError) Error() string {
+	var msg strings.Builder
+	if e.FileCount == 0 {
+		msg.WriteString(fmt.Sprintf("no files were successfully processed for pattern '%s'", e.Pattern))
+	} else {
+		msg.WriteString(fmt.Sprintf("some files could not be processed for pattern '%s'", e.Pattern))
+	}
+	if e.MainError != nil {
+		msg.WriteString(fmt.Sprintf(": %v", e.MainError))
+	}
+	return msg.String()
+}
 
 var catCmd = &cobra.Command{
 	Use:   "cat [file...]",
@@ -61,14 +82,11 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 
 	results, err := processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
 	if err != nil {
-		var errList []error
-		if len(results) == 0 {
-			errList = append(errList, fmt.Errorf("no files were successfully processed for pattern '%s'", pattern))
-		} else {
-			errList = append(errList, fmt.Errorf("some files could not be processed"))
+		return &CatCommandError{
+			MainError: err,
+			Pattern:   pattern,
+			FileCount: len(results),
 		}
-		errList = append(errList, err)
-		return errors.Join(errList...)
 	}
 
 	if len(results) == 0 {
