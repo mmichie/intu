@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
+	"github.com/mmichie/intu/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -24,9 +26,17 @@ var askCmd = &cobra.Command{
 	RunE:  runAskCommand,
 }
 
+var tuiCmd = &cobra.Command{
+	Use:   "tui",
+	Short: "Start the Text User Interface",
+	Long:  `Start an interactive Text User Interface for communicating with the AI assistant.`,
+	RunE:  runTUICommand,
+}
+
 func init() {
 	rootCmd.AddCommand(aiCmd)
 	aiCmd.AddCommand(askCmd)
+	aiCmd.AddCommand(tuiCmd)
 
 	// Add a flag for listing available prompts
 	aiCmd.PersistentFlags().BoolP("list", "l", false, "List available prompts")
@@ -64,7 +74,7 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error formatting prompt: %w", err)
 	}
 
-	return processWithAI(cmd, input, formattedPrompt)
+	return processWithAI(cmd.Context(), input, formattedPrompt)
 }
 
 func runAskCommand(cmd *cobra.Command, args []string) error {
@@ -80,10 +90,21 @@ func runAskCommand(cmd *cobra.Command, args []string) error {
 
 	// For the ask command, we don't use a pre-defined prompt template
 	// Instead, we use the user's prompt directly
-	return processWithAI(cmd, input, userPrompt)
+	return processWithAI(cmd.Context(), input, userPrompt)
 }
 
-func processWithAI(cmd *cobra.Command, input, promptText string) error {
+func runTUICommand(cmd *cobra.Command, args []string) error {
+	provider, err := selectProvider()
+	if err != nil {
+		return err
+	}
+
+	client := intu.NewClient(provider)
+
+	return tui.StartTUI(cmd.Context(), client)
+}
+
+func processWithAI(ctx context.Context, input, promptText string) error {
 	// Create AI client
 	provider, err := selectProvider()
 	if err != nil {
@@ -92,7 +113,7 @@ func processWithAI(cmd *cobra.Command, input, promptText string) error {
 	client := intu.NewClient(provider)
 
 	// Process input with AI
-	result, err := client.ProcessWithAI(cmd.Context(), input, promptText)
+	result, err := client.ProcessWithAI(ctx, input, promptText)
 	if err != nil {
 		return fmt.Errorf("error processing with AI: %w", err)
 	}
