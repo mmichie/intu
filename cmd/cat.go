@@ -9,20 +9,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
 	"github.com/spf13/cobra"
 )
 
 var (
-	recursive        bool
-	jsonOutput       bool
-	pattern          string
-	filterNames      []string
-	ignorePatterns   []string
-	listFilters      bool
-	extendedMetadata bool
+	recursive, jsonOutput, listFilters, extendedMetadata bool
+	pattern                                              string
+	filterNames, ignorePatterns                          []string
 )
 
 var catCmd = &cobra.Command{
@@ -66,11 +61,14 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 
 	results, err := processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
 	if err != nil {
+		var errList []error
 		if len(results) == 0 {
-			return fmt.Errorf("no files were successfully processed for pattern '%s': %w", pattern, err)
+			errList = append(errList, fmt.Errorf("no files were successfully processed for pattern '%s'", pattern))
+		} else {
+			errList = append(errList, fmt.Errorf("some files could not be processed"))
 		}
-		// If some files were processed, we'll return both the results and the error
-		fmt.Fprintf(os.Stderr, "Warning: Some files could not be processed: %v\n", err)
+		errList = append(errList, err)
+		return errors.Join(errList...)
 	}
 
 	if len(results) == 0 {
@@ -96,7 +94,7 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 	}
 
 	var results []fileops.FileInfo
-	var errs *multierror.Error
+	var errs []error
 
 	for _, file := range files {
 		select {
@@ -105,14 +103,18 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 		default:
 			info, err := processFile(fileOps, file, options.Extended, filters)
 			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("error processing file '%s': %w", file, err))
+				errs = append(errs, fmt.Errorf("error processing file '%s': %w", file, err))
 			} else {
 				results = append(results, info)
 			}
 		}
+		time.Sleep(time.Millisecond) // Prevent tight looping
 	}
 
-	return results, errs.ErrorOrNil()
+	if len(errs) > 0 {
+		return results, errors.Join(errs...)
+	}
+	return results, nil
 }
 
 func processFile(fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
