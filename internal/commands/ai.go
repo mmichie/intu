@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
-	"github.com/mmichie/intu/tui"
+	"github.com/mmichie/intu/ui/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -32,11 +32,11 @@ var tuiCmd = &cobra.Command{
 	RunE:  runTUICommand,
 }
 
-func init() {
+// InitAICommand initializes and adds the AI commands to the root command
+func InitAICommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(aiCmd)
 	aiCmd.AddCommand(askCmd)
 	aiCmd.AddCommand(tuiCmd)
-
 	// Add a flag for listing available prompts
 	aiCmd.PersistentFlags().BoolP("list", "l", false, "List available prompts")
 }

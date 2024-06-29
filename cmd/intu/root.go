@@ -1,10 +1,11 @@
-package cmd
+package main
 
 import (
 	"fmt"
 	"os"
 
 	"github.com/mmichie/intu/internal/ai"
+	"github.com/mmichie/intu/internal/commands"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -15,7 +16,8 @@ var (
 	verbose  bool
 )
 
-var rootCmd = &cobra.Command{
+// RootCmd is the root command for intu
+var RootCmd = &cobra.Command{
 	Use:   "intu",
 	Short: "intu is an AI-powered command-line tool",
 	Long: `intu is a CLI tool that leverages AI language models to assist with various tasks,
@@ -26,26 +28,27 @@ including file content analysis and generating git commit messages.`,
 	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+func Execute() error {
+	return RootCmd.Execute()
 }
 
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.intu.yaml)")
-	rootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai or claude)")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.intu.yaml)")
+	RootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai or claude)")
+	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 
-	viper.BindPFlag("provider", rootCmd.PersistentFlags().Lookup("provider"))
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	viper.BindPFlag("provider", RootCmd.PersistentFlags().Lookup("provider"))
+	viper.BindPFlag("verbose", RootCmd.PersistentFlags().Lookup("verbose"))
 
-	rootCmd.AddCommand(versionCmd)
+	// Initialize all commands
+	commands.InitAICommand(RootCmd)
+	commands.InitCatCommand(RootCmd)
+	commands.InitCodeReviewCommand(RootCmd)
+	commands.InitCommitCommand(RootCmd)
+
+	RootCmd.AddCommand(versionCmd)
 }
 
 func initConfig() {

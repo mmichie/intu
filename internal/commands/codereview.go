@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
+
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,8 @@ var codeReviewCmd = &cobra.Command{
 	RunE:  runCodeReviewCommand,
 }
 
-func init() {
+// InitCodeReviewCommand initializes and adds the codereview command to the given root command
+func InitCodeReviewCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(codeReviewCmd)
 }
 

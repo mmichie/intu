@@ -6,6 +6,7 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOGENERATE=$(GOCMD) generate
+GOFMT=$(GOCMD) fmt
 
 # Binary name
 BINARY_NAME=intu
@@ -14,12 +15,12 @@ BINARY_NAME=intu
 BUILD_DIR=bin
 
 # Main package path
-MAIN_PACKAGE=.
+MAIN_PACKAGE=./cmd/intu
 
 # All packages
 ALL_PACKAGES=./...
 
-all: test build
+all: deps fmt test build
 
 build: generate
 	mkdir -p $(BUILD_DIR)
@@ -40,9 +41,13 @@ run: build
 
 deps:
 	$(GOMOD) download
+	$(GOMOD) tidy
 
 generate:
 	$(GOGENERATE) $(ALL_PACKAGES)
+
+fmt:
+	$(GOFMT) $(ALL_PACKAGES)
 
 # Cross compilation
 build-linux: generate
@@ -66,4 +71,4 @@ build-darwin-arm64: generate
 # Build for all platforms
 build-all: build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64
 
-.PHONY: all build test test-verbose clean run deps generate build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64 build-all
+.PHONY: all build test test-verbose clean run deps generate fmt build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64 build-all

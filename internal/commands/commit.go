@@ -1,10 +1,11 @@
-package cmd
+package commands
 
 import (
 	"fmt"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
+
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +16,8 @@ var commitCmd = &cobra.Command{
 	RunE:  runCommitCommand,
 }
 
-func init() {
+// InitCommitCommand initializes and adds the commit command to the given root command
+func InitCommitCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(commitCmd)
 }
 

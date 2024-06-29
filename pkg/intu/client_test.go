@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
-	"github.com/mmichie/intu/pkg/intu/mocks"
+	"github.com/mmichie/intu/test/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

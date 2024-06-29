@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
+
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +49,7 @@ var catCmd = &cobra.Command{
 	RunE:  runCatCommand,
 }
 
-func init() {
+func InitCatCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(catCmd)
 	catCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively search for files")
 	catCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
