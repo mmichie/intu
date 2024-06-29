@@ -23,7 +23,7 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	// Read input from stdin
 	diffOutput, err := readInput(args)
 	if err != nil {
-		return fmt.Errorf("error reading input: %w", err)
+		return fmt.Errorf("error reading git diff input for commit command: %w", err)
 	}
 
 	// If there's no input, inform the user and exit
@@ -36,7 +36,7 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	// Select the AI provider
 	provider, err := selectProvider()
 	if err != nil {
-		return fmt.Errorf("failed to select AI provider: %w", err)
+		return fmt.Errorf("failed to select AI provider for commit command: %w", err)
 	}
 
 	// Create the client
@@ -45,13 +45,13 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	// Get the commit prompt
 	commitPrompt, ok := prompts.GetPrompt("commit")
 	if !ok {
-		return fmt.Errorf("commit prompt not found")
+		return fmt.Errorf("commit prompt not found in available prompts")
 	}
 
 	// Format the prompt with the diff output
 	formattedPrompt, err := commitPrompt.Format(diffOutput)
 	if err != nil {
-		return fmt.Errorf("error formatting prompt: %w", err)
+		return fmt.Errorf("error formatting commit prompt: %w", err)
 	}
 
 	// Generate the commit message
@@ -63,7 +63,7 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 	// Extract the commit message from the result
 	commitMessage, err := intu.ParseCommitMessage(result)
 	if err != nil {
-		return fmt.Errorf("error parsing commit message: %w", err)
+		return fmt.Errorf("error parsing generated commit message: %w", err)
 	}
 
 	// Print only the parsed commit message

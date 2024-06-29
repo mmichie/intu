@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/mmichie/intu/pkg/intu"
@@ -66,12 +65,12 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 
 	input, err := readInput(args[1:])
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading input for AI command: %w", err)
 	}
 
 	formattedPrompt, err := prompt.Format(input)
 	if err != nil {
-		return fmt.Errorf("error formatting prompt: %w", err)
+		return fmt.Errorf("error formatting prompt for AI command: %w", err)
 	}
 
 	return processWithAI(cmd.Context(), input, formattedPrompt)
@@ -79,13 +78,13 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 
 func runAskCommand(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return errors.New("prompt is required")
+		return fmt.Errorf("ask command requires at least one argument for the prompt")
 	}
 
 	userPrompt := args[0]
 	input, err := readInput(args[1:])
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading input for ask command: %w", err)
 	}
 
 	// For the ask command, we don't use a pre-defined prompt template
