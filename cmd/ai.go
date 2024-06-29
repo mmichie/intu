@@ -65,12 +65,12 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 
 	input, err := readInput(args[1:])
 	if err != nil {
-		return fmt.Errorf("error reading input for AI command: %w", err)
+		return fmt.Errorf("error reading input for AI command (prompt: %s): %w", promptName, err)
 	}
 
 	formattedPrompt, err := prompt.Format(input)
 	if err != nil {
-		return fmt.Errorf("error formatting prompt for AI command: %w", err)
+		return fmt.Errorf("error formatting prompt '%s' for AI command: %w", promptName, err)
 	}
 
 	return processWithAI(cmd.Context(), input, formattedPrompt)

@@ -66,15 +66,15 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 
 	results, err := processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 		if len(results) == 0 {
-			return fmt.Errorf("no files were successfully processed")
+			return fmt.Errorf("no files were successfully processed for pattern '%s': %w", pattern, err)
 		}
+		// If some files were processed, we'll return both the results and the error
+		fmt.Fprintf(os.Stderr, "Warning: Some files could not be processed: %v\n", err)
 	}
 
 	if len(results) == 0 {
-		fmt.Fprintln(os.Stderr, "No files found matching the pattern.")
-		return nil
+		return fmt.Errorf("no files found matching the pattern '%s'", pattern)
 	}
 
 	if jsonOutput {
@@ -92,11 +92,11 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern string, options fileops.Options, filters []filters.Filter) ([]fileops.FileInfo, error) {
 	files, err := fileOps.FindFiles(pattern, options)
 	if err != nil {
-		return nil, fmt.Errorf("error finding files: %w", err)
+		return nil, fmt.Errorf("error finding files with pattern '%s': %w", pattern, err)
 	}
 
 	var results []fileops.FileInfo
-	var resultError error
+	var errs *multierror.Error
 
 	for _, file := range files {
 		select {
@@ -105,14 +105,14 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 		default:
 			info, err := processFile(fileOps, file, options.Extended, filters)
 			if err != nil {
-				resultError = multierror.Append(resultError, fmt.Errorf("error processing %s: %w", file, err))
+				errs = multierror.Append(errs, fmt.Errorf("error processing file '%s': %w", file, err))
 			} else {
 				results = append(results, info)
 			}
 		}
 	}
 
-	return results, resultError
+	return results, errs.ErrorOrNil()
 }
 
 func processFile(fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
