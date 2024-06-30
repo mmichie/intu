@@ -9,6 +9,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	DefaultOpenAIModel = "gpt-4"
+	DefaultClaudeModel = "claude-3-5-sonnet-20240620"
+	DefaultGeminiModel = "gemini-1.5-pro"
+	DefaultProvider    = "openai"
+)
+
 var (
 	cfgFile  string
 	provider string
@@ -23,10 +30,10 @@ var RootCmd = &cobra.Command{
 including file content analysis and generating git commit messages.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Initialize default values for AI providers
-		viper.SetDefault("openai_model", "gpt-4")
-		viper.SetDefault("claude_model", "claude-3-5-sonnet-20240620")
-		viper.SetDefault("gemini_model", "gemini-pro")
-		viper.SetDefault("default_provider", "openai")
+		viper.SetDefault("openai_model", DefaultOpenAIModel)
+		viper.SetDefault("claude_model", DefaultClaudeModel)
+		viper.SetDefault("gemini_model", DefaultGeminiModel)
+		viper.SetDefault("default_provider", DefaultProvider)
 
 		// Bind environment variables
 		viper.BindEnv("openai_api_key", "OPENAI_API_KEY")
