@@ -37,7 +37,7 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
 		},
-		"max_tokens":  1000,
+		"max_tokens":  4096,
 		"temperature": 0.7,
 	}
 
