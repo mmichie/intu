@@ -28,7 +28,22 @@ func NewClient(provider ai.Provider) *Client {
 
 // ProcessWithAI processes input with AI and returns the response
 func (c *Client) ProcessWithAI(ctx context.Context, input, prompt string) (string, error) {
-	return c.Provider.GenerateResponse(ctx, prompt)
+	// Combine input and prompt if both are provided
+	fullPrompt := prompt
+	if input != "" {
+		if prompt != "" {
+			fullPrompt = fmt.Sprintf("%s\n\nInput: %s", prompt, input)
+		} else {
+			fullPrompt = input
+		}
+	}
+
+	response, err := c.Provider.GenerateResponse(ctx, fullPrompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate AI response: %w", err)
+	}
+
+	return response, nil
 }
 
 // AddFilter adds a filter to the client
