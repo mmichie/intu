@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -49,7 +50,13 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 		},
 	}
 
-	responseBody, err := sendRequest(ctx, details)
+	options := ClientOptions{
+		Timeout:       30 * time.Second,
+		RetryAttempts: 3,
+		RetryDelay:    time.Second,
+	}
+
+	responseBody, err := sendRequest(ctx, details, options)
 	if err != nil {
 		return "", err
 	}

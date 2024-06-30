@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -47,9 +48,15 @@ func SetClientOptions(options ClientOptions) {
 	})
 }
 
-func drainAndCloseBody(body io.ReadCloser) {
-	_, _ = io.Copy(io.Discard, body)
-	_ = body.Close()
+func drainAndCloseBody(body io.ReadCloser) error {
+	_, err := io.Copy(io.Discard, body)
+	if err != nil {
+		return fmt.Errorf("error draining body: %w", err)
+	}
+	if err := body.Close(); err != nil {
+		return fmt.Errorf("error closing body: %w", err)
+	}
+	return nil
 }
 
 func createRequest(ctx context.Context, details RequestDetails) (*http.Request, error) {
@@ -75,33 +82,56 @@ func createRequest(ctx context.Context, details RequestDetails) (*http.Request, 
 	return req, nil
 }
 
-func executeRequest(req *http.Request) ([]byte, error) {
+func executeRequest(req *http.Request, options ClientOptions) ([]byte, error) {
 	clientOnce.Do(initClient)
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error sending request to %s: %w", req.URL, err)
-	}
-	defer drainAndCloseBody(resp.Body)
+	var resp *http.Response
+	var err error
+	var body []byte
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response from %s: %w", req.URL, err)
+	for attempt := 0; attempt <= options.RetryAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(options.RetryDelay)
+		}
+
+		ctx, cancel := context.WithTimeout(req.Context(), options.Timeout)
+		defer cancel()
+
+		reqWithTimeout := req.WithContext(ctx)
+
+		resp, err = httpClient.Do(reqWithTimeout)
+		if err != nil {
+			log.Printf("Attempt %d: error sending request to %s: %v", attempt+1, req.URL, err)
+			continue
+		}
+
+		defer func() {
+			if err := drainAndCloseBody(resp.Body); err != nil {
+				log.Printf("Error closing response body: %v", err)
+			}
+		}()
+
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("Attempt %d: error reading response from %s: %v", attempt+1, req.URL, err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			return body, nil
+		}
+
+		log.Printf("Attempt %d: API request to %s failed with status code %d: %s", attempt+1, req.URL, resp.StatusCode, string(body))
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request to %s failed with status code %d: %s", req.URL, resp.StatusCode,
-			string(body))
-	}
-
-	return body, nil
+	return nil, fmt.Errorf("API request to %s failed after %d attempts", req.URL, options.RetryAttempts+1)
 }
 
-func sendRequest(ctx context.Context, details RequestDetails) ([]byte, error) {
+func sendRequest(ctx context.Context, details RequestDetails, options ClientOptions) ([]byte, error) {
 	req, err := createRequest(ctx, details)
 	if err != nil {
 		return nil, err
 	}
 
-	return executeRequest(req)
+	return executeRequest(req, options)
 }
