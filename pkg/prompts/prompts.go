@@ -28,6 +28,18 @@ func (p Prompt) Format(input string) (string, error) {
 		data = map[string]string{"Code": input}
 	case "codereview":
 		data = map[string]string{"CodeToReview": input}
+	case "code_summary":
+		data = map[string]string{"code": input}
+	case "unit_test":
+		// Assuming input is in the format "FUNCTION_OR_CLASS|||LANGUAGE"
+		parts := strings.SplitN(input, "|||", 2)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid input format for unit_test prompt")
+		}
+		data = map[string]string{
+			"function_or_class": parts[0],
+			"language":          parts[1],
+		}
 	default:
 		return "", fmt.Errorf("unknown prompt type: %s", p.Name)
 	}
@@ -56,16 +68,20 @@ func loadTemplate(name string) (*template.Template, error) {
 }
 
 var (
-	Commit, _     = loadTemplate("commit")
-	Summarize, _  = loadTemplate("summarize")
-	Readme, _     = loadTemplate("readme")
-	CodeReview, _ = loadTemplate("codereview")
+	Commit, _      = loadTemplate("commit")
+	Summarize, _   = loadTemplate("summarize")
+	Readme, _      = loadTemplate("readme")
+	CodeReview, _  = loadTemplate("codereview")
+	CodeSummary, _ = loadTemplate("code_summary")
+	UnitTest, _    = loadTemplate("unit_test")
 
 	AllPrompts = []Prompt{
 		{Name: "commit", Description: "Generate a git commit message", Template: Commit},
 		{Name: "summarize", Description: "Summarize the given text", Template: Summarize},
 		{Name: "readme", Description: "Generate a README from code", Template: Readme},
 		{Name: "codereview", Description: "Generate code review comments", Template: CodeReview},
+		{Name: "code_summary", Description: "Summarize code structure and design", Template: CodeSummary},
+		{Name: "unit_test", Description: "Generate unit tests for a function or class", Template: UnitTest},
 	}
 )
 

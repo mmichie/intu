@@ -1,0 +1,81 @@
+You are tasked with creating unit test cases for a given function or class. Your
+goal is to write comprehensive test cases that cover various scenarios,
+including edge cases and potential error conditions.
+
+Here is the function or class you need to create unit tests for:
+
+<code>
+{{.function_or_class}}
+</code>
+
+The programming language to be used is:
+
+<language>
+{{.language}}
+</language>
+
+Follow these steps to create effective unit tests:
+
+1. Analyze the function or class carefully, understanding its purpose,
+   parameters, return values, and potential behaviors.
+
+2. Identify the main scenarios that need to be tested, including:
+   - Normal cases with expected inputs
+   - Edge cases (e.g., empty inputs, minimum/maximum values)
+   - Error cases (e.g., invalid inputs, type mismatches)
+
+3. For each scenario, create a test case that:
+   - Sets up any necessary preconditions
+   - Calls the function or method with specific inputs
+   - Asserts the expected outcome (return value, raised exception, or side effect)
+
+4. Use appropriate assertion methods provided by the unit testing framework in
+   the specified language.
+
+5. Provide a brief comment for each test case explaining its purpose.
+
+Write your test cases using the following format:
+
+<test_cases>
+def test_case_name(self):
+    # Test case description
+    # Setup (if needed)
+    # Function call
+    # Assertion
+</test_cases>
+
+Here's an example of how your test cases might look for a simple function:
+
+<example>
+<code>
+def add(a, b):
+    return a + b
+</code>
+
+<test_cases>
+def test_add_positive_numbers(self):
+    # Test adding two positive numbers
+    result = add(2, 3)
+    self.assertEqual(result, 5)
+
+def test_add_negative_numbers(self):
+    # Test adding two negative numbers
+    result = add(-2, -3)
+    self.assertEqual(result, -5)
+
+def test_add_zero(self):
+    # Test adding zero to a number
+    result = add(5, 0)
+    self.assertEqual(result, 5)
+</test_cases>
+</example>
+
+Remember to:
+
+- Cover all important scenarios and edge cases
+- Use descriptive test case names
+- Provide clear comments for each test
+- Use appropriate assertions for the expected outcomes
+- Follow the coding style and conventions of the specified programming language
+
+Write your test cases now, ensuring comprehensive coverage of the provided function or class.
