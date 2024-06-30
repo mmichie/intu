@@ -3,11 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
 	"github.com/mmichie/intu/ui/tui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var aiCmd = &cobra.Command{
@@ -97,10 +99,16 @@ func runTUICommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	client := intu.NewClient(provider)
 
-	return tui.StartTUI(cmd.Context(), client)
+	// Get terminal size
+	width, height, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		// If we can't get the terminal size, use default values
+		width, height = 80, 24
+	}
+
+	return tui.StartTUI(cmd.Context(), client, width, height)
 }
 
 func processWithAI(ctx context.Context, input, promptText string) error {
