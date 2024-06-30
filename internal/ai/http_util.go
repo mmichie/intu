@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -25,17 +26,25 @@ type ClientOptions struct {
 	RetryDelay    time.Duration
 }
 
-// Global HTTP client with default options
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
+var (
+	httpClient *http.Client
+	clientOnce sync.Once
+)
+
+// initClient initializes the HTTP client with default options
+func initClient() {
+	httpClient = &http.Client{
+		Timeout: 30 * time.Second,
+	}
 }
 
 // SetClientOptions allows customization of the HTTP client
 func SetClientOptions(options ClientOptions) {
-	httpClient = &http.Client{
-		Timeout: options.Timeout,
-	}
-	// Add retry logic here if needed
+	clientOnce.Do(func() {
+		httpClient = &http.Client{
+			Timeout: options.Timeout,
+		}
+	})
 }
 
 func drainAndCloseBody(body io.ReadCloser) {
@@ -43,7 +52,7 @@ func drainAndCloseBody(body io.ReadCloser) {
 	_ = body.Close()
 }
 
-func sendRequest(ctx context.Context, details RequestDetails) ([]byte, error) {
+func createRequest(ctx context.Context, details RequestDetails) (*http.Request, error) {
 	jsonBody, err := json.Marshal(details.RequestBody)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
@@ -63,20 +72,36 @@ func sendRequest(ctx context.Context, details RequestDetails) ([]byte, error) {
 		req.Header.Set(key, value)
 	}
 
+	return req, nil
+}
+
+func executeRequest(req *http.Request) ([]byte, error) {
+	clientOnce.Do(initClient)
+
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error sending request to %s: %w", details.URL, err)
+		return nil, fmt.Errorf("error sending request to %s: %w", req.URL, err)
 	}
 	defer drainAndCloseBody(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading response from %s: %w", details.URL, err)
+		return nil, fmt.Errorf("error reading response from %s: %w", req.URL, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request to %s failed with status code %d: %s", details.URL, resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API request to %s failed with status code %d: %s", req.URL, resp.StatusCode,
+			string(body))
 	}
 
 	return body, nil
+}
+
+func sendRequest(ctx context.Context, details RequestDetails) ([]byte, error) {
+	req, err := createRequest(ctx, details)
+	if err != nil {
+		return nil, err
+	}
+
+	return executeRequest(req)
 }
