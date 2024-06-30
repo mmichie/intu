@@ -107,8 +107,9 @@ func processWithAI(ctx context.Context, input, promptText string) error {
 	// Create AI client
 	provider, err := selectProvider()
 	if err != nil {
-		return fmt.Errorf("failed to select AI provider: %w", err)
+		return fmt.Errorf("failed to select AI provider for AI command: %w", err)
 	}
+
 	client := intu.NewClient(provider)
 
 	// Process input with AI

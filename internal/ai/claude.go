@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type ClaudeAIProvider struct {
@@ -57,7 +59,7 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 
 	err = json.Unmarshal(responseBody, &claudeAIResp)
 	if err != nil {
-		return "", fmt.Errorf("error unmarshaling response: %w", err)
+		return "", errors.Wrap(err, "error unmarshaling Claude AI response")
 	}
 
 	if len(claudeAIResp.Content) == 0 {
