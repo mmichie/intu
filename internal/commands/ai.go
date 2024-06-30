@@ -39,6 +39,7 @@ func InitAICommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(aiCmd)
 	aiCmd.AddCommand(askCmd)
 	aiCmd.AddCommand(tuiCmd)
+	InitDaemonCommand(rootCmd)
 	// Add a flag for listing available prompts
 	aiCmd.PersistentFlags().BoolP("list", "l", false, "List available prompts")
 }
