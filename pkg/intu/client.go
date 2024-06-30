@@ -8,7 +8,7 @@ import (
 	"github.com/mmichie/intu/internal/ai"
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
-	"github.com/mmichie/intu/prompts"
+	"github.com/mmichie/intu/pkg/prompts"
 )
 
 // Client is the main client
