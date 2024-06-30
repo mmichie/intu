@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 type OpenAIProvider struct {
@@ -16,7 +18,6 @@ func NewOpenAIProvider() (*OpenAIProvider, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("OPENAI_API_KEY environment variable is not set")
 	}
-
 	provider := &OpenAIProvider{
 		BaseProvider: BaseProvider{
 			APIKey: apiKey,
@@ -24,7 +25,6 @@ func NewOpenAIProvider() (*OpenAIProvider, error) {
 		},
 	}
 	provider.Model = provider.GetEnvOrDefault("OPENAI_MODEL", "gpt-4")
-
 	return provider, nil
 }
 
@@ -36,7 +36,13 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (s
 		},
 	}
 
-	responseBody, err := sendRequest(ctx, p.URL, p.APIKey, requestBody)
+	details := RequestDetails{
+		URL:         p.URL,
+		APIKey:      p.APIKey,
+		RequestBody: requestBody,
+	}
+
+	responseBody, err := sendRequest(ctx, details)
 	if err != nil {
 		return "", err
 	}
@@ -48,16 +54,13 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (s
 			} `json:"message"`
 		} `json:"choices"`
 	}
-
 	err = json.Unmarshal(responseBody, &openAIResp)
 	if err != nil {
-		return "", fmt.Errorf("error unmarshaling response: %w", err)
+		return "", errors.Wrap(err, "error unmarshaling OpenAI response")
 	}
-
 	if len(openAIResp.Choices) == 0 {
 		return "", fmt.Errorf("no response from OpenAI")
 	}
-
 	return openAIResp.Choices[0].Message.Content, nil
 }
 

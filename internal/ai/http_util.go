@@ -1,5 +1,3 @@
-// internal/ai/http_util.go
-
 package ai
 
 import (
@@ -7,40 +5,55 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"time"
 )
 
-func sendRequest(ctx context.Context, url, apiKey string, requestBody interface{}, additionalHeaders ...map[string]string) ([]byte, error) {
-	jsonBody, err := json.Marshal(requestBody)
+// RequestDetails holds the details for an HTTP request
+type RequestDetails struct {
+	URL               string
+	APIKey            string
+	RequestBody       interface{}
+	AdditionalHeaders map[string]string
+}
+
+// Global HTTP client with timeouts
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
+func sendRequest(ctx context.Context, details RequestDetails) ([]byte, error) {
+	jsonBody, err := json.Marshal(details.RequestBody)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", details.URL, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	if details.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+details.APIKey)
 	}
 
-	for _, headers := range additionalHeaders {
-		for key, value := range headers {
-			req.Header.Set(key, value)
-		}
+	for key, value := range details.AdditionalHeaders {
+		req.Header.Set(key, value)
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Ensure body is fully read and closed
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading response: %w", err)
 	}
