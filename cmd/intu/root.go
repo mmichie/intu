@@ -25,11 +25,13 @@ including file content analysis and generating git commit messages.`,
 		// Initialize default values for AI providers
 		viper.SetDefault("openai_model", "gpt-4")
 		viper.SetDefault("claude_model", "claude-3-5-sonnet-20240620")
+		viper.SetDefault("gemini_model", "gemini-pro")
 		viper.SetDefault("default_provider", "openai")
 
 		// Bind environment variables
 		viper.BindEnv("openai_api_key", "OPENAI_API_KEY")
 		viper.BindEnv("claude_api_key", "CLAUDE_API_KEY")
+		viper.BindEnv("gemini_api_key", "GEMINI_API_KEY")
 
 		// Set the provider if specified in the command line
 		if provider != "" {
@@ -46,7 +48,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.intu.yaml)")
-	RootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai or claude)")
+	RootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai, claude, or gemini)")
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 
 	viper.BindPFlag("provider", RootCmd.PersistentFlags().Lookup("provider"))
