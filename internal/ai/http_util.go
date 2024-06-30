@@ -1,3 +1,5 @@
+// internal/ai/http_util.go
+
 package ai
 
 import (
@@ -9,31 +11,26 @@ import (
 	"net/http"
 )
 
-type BaseProvider struct {
-	APIKey string
-	Model  string
-	URL    string
-}
-
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-func (p *BaseProvider) sendRequest(ctx context.Context, requestBody interface{}, headers map[string]string) ([]byte, error) {
+func sendRequest(ctx context.Context, url, apiKey string, requestBody interface{}, additionalHeaders ...map[string]string) ([]byte, error) {
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.URL, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	for key, value := range headers {
-		req.Header.Set(key, value)
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	for _, headers := range additionalHeaders {
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
 	}
 
 	client := &http.Client{}

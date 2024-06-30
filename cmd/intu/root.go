@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmichie/intu/internal/ai"
 	"github.com/mmichie/intu/internal/commands"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,8 +22,19 @@ var RootCmd = &cobra.Command{
 	Long: `intu is a CLI tool that leverages AI language models to assist with various tasks,
 including file content analysis and generating git commit messages.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// Initialize AI provider configuration
-		ai.InitProviderConfig()
+		// Initialize default values for AI providers
+		viper.SetDefault("openai_model", "gpt-4")
+		viper.SetDefault("claude_model", "claude-3-5-sonnet-20240620")
+		viper.SetDefault("default_provider", "openai")
+
+		// Bind environment variables
+		viper.BindEnv("openai_api_key", "OPENAI_API_KEY")
+		viper.BindEnv("claude_api_key", "CLAUDE_API_KEY")
+
+		// Set the provider if specified in the command line
+		if provider != "" {
+			viper.Set("default_provider", provider)
+		}
 	},
 }
 

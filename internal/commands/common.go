@@ -12,7 +12,7 @@ import (
 
 func selectProvider() (ai.Provider, error) {
 	providerName := viper.GetString("provider")
-	return ai.SelectProvider(providerName)
+	return ai.NewProvider(providerName)
 }
 
 // Helper function to read input from args or stdin

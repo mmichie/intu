@@ -12,47 +12,31 @@ type ClaudeAIProvider struct {
 	BaseProvider
 }
 
-type claudeAIRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature float64   `json:"temperature"`
-}
-
-type claudeAIResponse struct {
-	Content []struct {
-		Text string `json:"text"`
-	} `json:"content"`
-}
-
 func NewClaudeAIProvider() (*ClaudeAIProvider, error) {
 	apiKey := os.Getenv("CLAUDE_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("CLAUDE_API_KEY environment variable is not set")
 	}
 
-	model := os.Getenv("CLAUDE_MODEL")
-	if model == "" {
-		model = "claude-3-5-sonnet-20240620"
-	}
-
-	return &ClaudeAIProvider{
+	provider := &ClaudeAIProvider{
 		BaseProvider: BaseProvider{
 			APIKey: apiKey,
-			Model:  model,
 			URL:    "https://api.anthropic.com/v1/messages",
 		},
-	}, nil
+	}
+	provider.Model = provider.GetEnvOrDefault("CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
+
+	return provider, nil
 }
 
 func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
-	requestBody := claudeAIRequest{
-		Model: p.Model,
-		Messages: []Message{
-			{Role: "user", Content: prompt},
+	requestBody := map[string]interface{}{
+		"model": p.Model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
 		},
-		MaxTokens:   1000,
-		Temperature: 0.7,
+		"max_tokens":  1000,
+		"temperature": 0.7,
 	}
 
 	headers := map[string]string{
@@ -60,12 +44,17 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 		"anthropic-version": "2023-06-01",
 	}
 
-	responseBody, err := p.sendRequest(ctx, requestBody, headers)
+	responseBody, err := sendRequest(ctx, p.URL, "", requestBody, headers)
 	if err != nil {
 		return "", err
 	}
 
-	var claudeAIResp claudeAIResponse
+	var claudeAIResp struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+
 	err = json.Unmarshal(responseBody, &claudeAIResp)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling response: %w", err)
@@ -76,4 +65,8 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 	}
 
 	return strings.TrimSpace(claudeAIResp.Content[0].Text), nil
+}
+
+func (p *ClaudeAIProvider) Name() string {
+	return "claude"
 }

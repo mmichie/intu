@@ -11,57 +11,44 @@ type OpenAIProvider struct {
 	BaseProvider
 }
 
-type openAIRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-}
-
-type openAIResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
-}
-
 func NewOpenAIProvider() (*OpenAIProvider, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("OPENAI_API_KEY environment variable is not set")
 	}
 
-	model := os.Getenv("OPENAI_MODEL")
-	if model == "" {
-		model = "gpt-4"
-	}
-
-	return &OpenAIProvider{
+	provider := &OpenAIProvider{
 		BaseProvider: BaseProvider{
 			APIKey: apiKey,
-			Model:  model,
 			URL:    "https://api.openai.com/v1/chat/completions",
 		},
-	}, nil
+	}
+	provider.Model = provider.GetEnvOrDefault("OPENAI_MODEL", "gpt-4")
+
+	return provider, nil
 }
 
 func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
-	requestBody := openAIRequest{
-		Model: p.Model,
-		Messages: []Message{
-			{Role: "user", Content: prompt},
+	requestBody := map[string]interface{}{
+		"model": p.Model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
 		},
 	}
 
-	headers := map[string]string{
-		"Authorization": "Bearer " + p.APIKey,
-	}
-
-	responseBody, err := p.sendRequest(ctx, requestBody, headers)
+	responseBody, err := sendRequest(ctx, p.URL, p.APIKey, requestBody)
 	if err != nil {
 		return "", err
 	}
 
-	var openAIResp openAIResponse
+	var openAIResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
 	err = json.Unmarshal(responseBody, &openAIResp)
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling response: %w", err)
@@ -72,4 +59,8 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (s
 	}
 
 	return openAIResp.Choices[0].Message.Content, nil
+}
+
+func (p *OpenAIProvider) Name() string {
+	return "openai"
 }
