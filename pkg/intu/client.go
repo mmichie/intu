@@ -8,6 +8,7 @@ import (
 	"github.com/mmichie/intu/internal/ai"
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
+	"github.com/mmichie/intu/prompts"
 )
 
 // Client is the main client
@@ -37,7 +38,16 @@ func (c *Client) AddFilter(filter filters.Filter) {
 
 // GenerateCommitMessage generates a commit message based on the provided diff
 func (c *Client) GenerateCommitMessage(ctx context.Context, diffOutput string) (string, error) {
-	prompt := generateCommitPrompt(diffOutput)
+	commitPrompt, found := prompts.GetPrompt("commit")
+	if !found {
+		return "", fmt.Errorf("commit prompt not found")
+	}
+
+	prompt, err := commitPrompt.Format(diffOutput)
+	if err != nil {
+		return "", fmt.Errorf("failed to format commit prompt: %w", err)
+	}
+
 	message, err := c.Provider.GenerateResponse(ctx, prompt)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate commit message: %w", err)
@@ -115,11 +125,4 @@ func (c *Client) processFile(ctx context.Context, file string, extended bool) (f
 	}
 
 	return info, nil
-}
-
-func generateCommitPrompt(diffOutput string) string {
-	return fmt.Sprintf(`Generate a concise git commit message in conventional style for the following diff:
-%s
-Provide a short summary in the first line, followed by a blank line and a more detailed description using bullet points.
-Optimize for a FAANG engineer experienced with the code. Keep line width to about 79 characters.`, diffOutput)
 }
