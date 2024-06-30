@@ -25,6 +25,7 @@ func NewClient(provider ai.Provider) *Client {
 	}
 }
 
+// ProcessWithAI processes input with AI and returns the response
 func (c *Client) ProcessWithAI(ctx context.Context, input, prompt string) (string, error) {
 	return c.Provider.GenerateResponse(ctx, prompt)
 }
@@ -46,7 +47,7 @@ func (c *Client) GenerateCommitMessage(ctx context.Context, diffOutput string) (
 
 // CatFiles processes files matching the given pattern
 func (c *Client) CatFiles(ctx context.Context, pattern string, options fileops.Options) ([]fileops.FileInfo, error) {
-	files, err := c.FileOps.FindFiles(pattern, options)
+	files, err := c.FileOps.FindFiles(ctx, pattern, options)
 	if err != nil {
 		return nil, fmt.Errorf("error finding files: %w", err)
 	}
@@ -86,7 +87,7 @@ func (c *Client) CatFiles(ctx context.Context, pattern string, options fileops.O
 }
 
 func (c *Client) processFile(ctx context.Context, file string, extended bool) (fileops.FileInfo, error) {
-	content, err := c.FileOps.ReadFile(file)
+	content, err := c.FileOps.ReadFile(ctx, file)
 	if err != nil {
 		return fileops.FileInfo{}, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -102,10 +103,11 @@ func (c *Client) processFile(ctx context.Context, file string, extended bool) (f
 
 	var info fileops.FileInfo
 	var infoErr error
+
 	if extended {
-		info, infoErr = c.FileOps.GetExtendedFileInfo(file, content)
+		info, infoErr = c.FileOps.GetExtendedFileInfo(ctx, file, content)
 	} else {
-		info, infoErr = c.FileOps.GetBasicFileInfo(file, content)
+		info, infoErr = c.FileOps.GetBasicFileInfo(ctx, file, content)
 	}
 
 	if infoErr != nil {
@@ -117,9 +119,7 @@ func (c *Client) processFile(ctx context.Context, file string, extended bool) (f
 
 func generateCommitPrompt(diffOutput string) string {
 	return fmt.Sprintf(`Generate a concise git commit message in conventional style for the following diff:
-
 %s
-
 Provide a short summary in the first line, followed by a blank line and a more detailed description using bullet points.
 Optimize for a FAANG engineer experienced with the code. Keep line width to about 79 characters.`, diffOutput)
 }

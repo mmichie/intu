@@ -107,7 +107,7 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 }
 
 func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern string, options fileops.Options, filters []filters.Filter) ([]fileops.FileInfo, error) {
-	files, err := fileOps.FindFiles(pattern, options)
+	files, err := fileOps.FindFiles(ctx, pattern, options)
 	if err != nil {
 		return nil, fmt.Errorf("error finding files with pattern '%s': %w", pattern, err)
 	}
@@ -120,7 +120,7 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 		case <-ctx.Done():
 			return results, ctx.Err()
 		default:
-			info, err := processFile(fileOps, file, options.Extended, filters)
+			info, err := processFile(ctx, fileOps, file, options.Extended, filters)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("error processing file '%s': %w", file, err))
 			} else {
@@ -136,8 +136,8 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 	return results, nil
 }
 
-func processFile(fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
-	content, err := fileOps.ReadFile(file)
+func processFile(ctx context.Context, fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
+	content, err := fileOps.ReadFile(ctx, file)
 	if err != nil {
 		return fileops.FileInfo{}, fmt.Errorf("error reading file %s: %w", file, err)
 	}
@@ -147,9 +147,9 @@ func processFile(fileOps fileops.FileOperator, file string, extended bool, filte
 	}
 
 	if extended {
-		return fileOps.GetExtendedFileInfo(file, content)
+		return fileOps.GetExtendedFileInfo(ctx, file, content)
 	}
-	return fileOps.GetBasicFileInfo(file, content)
+	return fileOps.GetBasicFileInfo(ctx, file, content)
 }
 
 func getAppliedFilters(names []string) []filters.Filter {
