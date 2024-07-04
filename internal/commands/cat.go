@@ -65,13 +65,6 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		return listAvailableFilters(os.Stdout)
 	}
 
-	if pattern == "" && len(args) > 0 {
-		pattern = args[0]
-	}
-	if pattern == "" {
-		pattern = "*"
-	}
-
 	fileOps := fileops.NewFileOperator()
 	appliedFilters := getAppliedFilters(filterNames)
 
@@ -81,12 +74,32 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		Ignore:    ignorePatterns,
 	}
 
-	results, err := processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
-	if err != nil {
-		return &CatCommandError{
-			MainError: err,
-			Pattern:   pattern,
-			FileCount: len(results),
+	var results []fileops.FileInfo
+	var err error
+
+	if pattern == "" && len(args) == 1 {
+		// Single file mode
+		file := args[0]
+		info, err := processFile(cmd.Context(), fileOps, file, options.Extended, appliedFilters)
+		if err != nil {
+			return fmt.Errorf("error processing file '%s': %w", file, err)
+		}
+		results = []fileops.FileInfo{info}
+	} else {
+		// Pattern or multiple files mode
+		if pattern == "" && len(args) > 0 {
+			pattern = args[0]
+		}
+		if pattern == "" {
+			pattern = "*"
+		}
+		results, err = processFiles(cmd.Context(), fileOps, pattern, options, appliedFilters)
+		if err != nil {
+			return &CatCommandError{
+				MainError: err,
+				Pattern:   pattern,
+				FileCount: len(results),
+			}
 		}
 	}
 
