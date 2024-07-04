@@ -201,7 +201,12 @@ func outputText(w io.Writer, results []fileops.FileInfo) error {
 			{"Relative Path", info.RelativePath, true},
 			{"File Type", info.FileType, true},
 			{"File Size", fmt.Sprintf("%d bytes", info.FileSize), info.FileSize > 0},
-			{"Last Modified", info.LastModified.Format(time.RFC3339), !info.LastModified.IsZero()},
+			{"Last Modified", func() string {
+				if info.LastModified != nil {
+					return info.LastModified.Format(time.RFC3339)
+				}
+				return ""
+			}(), info.LastModified != nil},
 			{"Line Count", info.LineCount, info.LineCount > 0},
 			{"MD5 Checksum", info.MD5Checksum, info.MD5Checksum != ""},
 		}

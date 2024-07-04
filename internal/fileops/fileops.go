@@ -23,14 +23,14 @@ type Options struct {
 
 // FileInfo struct contains information about a file
 type FileInfo struct {
-	Filename     string    `json:"filename"`
-	RelativePath string    `json:"relative_path"`
-	FileType     string    `json:"file_type"`
-	Content      string    `json:"content"`
-	FileSize     int64     `json:"file_size,omitempty"`
-	LastModified time.Time `json:"last_modified,omitempty"`
-	LineCount    int       `json:"line_count,omitempty"`
-	MD5Checksum  string    `json:"md5_checksum,omitempty"`
+	Filename     string     `json:"filename"`
+	RelativePath string     `json:"relative_path"`
+	FileType     string     `json:"file_type"`
+	Content      string     `json:"content"`
+	FileSize     int64      `json:"file_size,omitempty"`
+	LastModified *time.Time `json:"last_modified,omitempty"`
+	LineCount    int        `json:"line_count,omitempty"`
+	MD5Checksum  string     `json:"md5_checksum,omitempty"`
 }
 
 // FileOperator interface defines methods for file operations
@@ -154,13 +154,15 @@ func (lfo *LocalFileOperator) GetExtendedFileInfo(ctx context.Context, path stri
 	md5sum := md5.Sum([]byte(content))
 	checksum := hex.EncodeToString(md5sum[:])
 
+	lastModified := info.ModTime()
+
 	return FileInfo{
 		Filename:     filepath.Base(path),
 		RelativePath: path,
 		FileType:     getFileType(path),
 		Content:      content,
 		FileSize:     info.Size(),
-		LastModified: info.ModTime(),
+		LastModified: &lastModified,
 		LineCount:    countLines(content),
 		MD5Checksum:  checksum,
 	}, nil
