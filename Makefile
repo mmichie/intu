@@ -69,6 +69,6 @@ build-darwin-arm64: generate
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
 
 # Build for all platforms
-build-all: build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64
+build-all: build-linux build-linux-arm64 build-darwin build-darwin-arm64
 
 .PHONY: all build test test-verbose clean run deps generate fmt build-linux build-linux-arm64 build-windows build-windows-arm64 build-darwin build-darwin-arm64 build-all
