@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -43,9 +45,9 @@ func (e *CatCommandError) Error() string {
 }
 
 var catCmd = &cobra.Command{
-	Use:   "cat [file...]",
+	Use:   "cat [file...] or [pattern]",
 	Short: "Concatenate and display file contents",
-	Long:  `Display contents of files with optional filters applied to transform the text.`,
+	Long:  `Display contents of files with optional filters applied to transform the text. Supports full regex and path patterns.`,
 	RunE:  runCatCommand,
 }
 
@@ -53,7 +55,7 @@ func InitCatCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(catCmd)
 	catCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively search for files")
 	catCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
-	catCmd.Flags().StringVarP(&pattern, "pattern", "p", "", `File pattern to match (e.g., "*.go")`)
+	catCmd.Flags().StringVarP(&pattern, "pattern", "p", "", `File pattern to match (supports full regex and paths, e.g., "routes/templates/settings.*\.go")`)
 	catCmd.Flags().StringSliceVarP(&filterNames, "filters", "f", nil, "List of filters to apply (comma-separated)")
 	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", nil, "Patterns to ignore (can be specified multiple times)")
 	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
@@ -120,7 +122,7 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 }
 
 func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern string, options fileops.Options, filters []filters.Filter) ([]fileops.FileInfo, error) {
-	files, err := fileOps.FindFiles(ctx, pattern, options)
+	files, err := findFilesWithRegex(ctx, pattern, options)
 	if err != nil {
 		return nil, fmt.Errorf("error finding files with pattern '%s': %w", pattern, err)
 	}
@@ -147,6 +149,67 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 		return results, errors.Join(errs...)
 	}
 	return results, nil
+}
+
+func findFilesWithRegex(ctx context.Context, pattern string, options fileops.Options) ([]string, error) {
+	var files []string
+	var regexPattern *regexp.Regexp
+	var err error
+
+	// If the pattern is not a full path, treat it as a regex
+	if !filepath.IsAbs(pattern) && !strings.Contains(pattern, string(os.PathSeparator)) {
+		regexPattern, err = regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex pattern: %w", err)
+		}
+	}
+
+	err = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !options.Recursive && info.IsDir() && path != "." {
+			return filepath.SkipDir
+		}
+
+		for _, ignore := range options.Ignore {
+			if matched, _ := filepath.Match(ignore, filepath.Base(path)); matched {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// If it's a full path pattern, use filepath.Match
+		if filepath.IsAbs(pattern) || strings.Contains(pattern, string(os.PathSeparator)) {
+			matched, err := filepath.Match(pattern, path)
+			if err != nil {
+				return fmt.Errorf("error matching path: %w", err)
+			}
+			if matched {
+				files = append(files, path)
+			}
+		} else if regexPattern != nil {
+			// Use regex for matching if it's not a full path
+			if regexPattern.MatchString(path) {
+				files = append(files, path)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error walking directory: %w", err)
+	}
+
+	return files, nil
 }
 
 func processFile(ctx context.Context, fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
