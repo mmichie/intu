@@ -44,6 +44,18 @@ func (e *CatCommandError) Error() string {
 	return msg.String()
 }
 
+// FileInfoJSON is a struct for JSON output that conditionally includes fields
+type FileInfoJSON struct {
+	Filename     string     `json:"filename,omitempty"`
+	RelativePath string     `json:"relative_path"`
+	FileType     string     `json:"file_type,omitempty"`
+	Content      string     `json:"content"`
+	FileSize     int64      `json:"file_size,omitempty"`
+	LastModified *time.Time `json:"last_modified,omitempty"`
+	LineCount    int        `json:"line_count,omitempty"`
+	MD5Checksum  string     `json:"md5_checksum,omitempty"`
+}
+
 var catCmd = &cobra.Command{
 	Use:   "cat [file...] or [pattern]",
 	Short: "Concatenate and display file contents",
@@ -241,9 +253,26 @@ func getAppliedFilters(names []string) []filters.Filter {
 }
 
 func outputJSON(w io.Writer, results []fileops.FileInfo) error {
+	var jsonResults []FileInfoJSON
+	for _, info := range results {
+		jsonInfo := FileInfoJSON{
+			RelativePath: info.RelativePath,
+			Content:      info.Content,
+		}
+		if extendedMetadata {
+			jsonInfo.Filename = info.Filename
+			jsonInfo.FileType = info.FileType
+			jsonInfo.FileSize = info.FileSize
+			jsonInfo.LastModified = info.LastModified
+			jsonInfo.LineCount = info.LineCount
+			jsonInfo.MD5Checksum = info.MD5Checksum
+		}
+		jsonResults = append(jsonResults, jsonInfo)
+	}
+
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(results); err != nil {
+	if err := encoder.Encode(jsonResults); err != nil {
 		return fmt.Errorf("error encoding JSON: %w", err)
 	}
 	return nil
@@ -260,9 +289,9 @@ func outputText(w io.Writer, results []fileops.FileInfo) error {
 			value interface{}
 			cond  bool
 		}{
-			{"Filename", info.Filename, true},
 			{"Relative Path", info.RelativePath, true},
-			{"File Type", info.FileType, true},
+			{"Filename", info.Filename, extendedMetadata},
+			{"File Type", info.FileType, extendedMetadata},
 			{"File Size", fmt.Sprintf("%d bytes", info.FileSize), info.FileSize > 0},
 			{"Last Modified", func() string {
 				if info.LastModified != nil {
