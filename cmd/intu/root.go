@@ -66,6 +66,7 @@ func init() {
 	commands.InitCatCommand(RootCmd)
 	commands.InitCodeReviewCommand(RootCmd)
 	commands.InitCommitCommand(RootCmd)
+	commands.InitSecurityReviewCommand(RootCmd)
 
 	RootCmd.AddCommand(versionCmd)
 }

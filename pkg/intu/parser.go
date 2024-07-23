@@ -9,7 +9,7 @@ import (
 // ParseTaggedContent extracts content between specified XML-like tags
 func ParseTaggedContent(input, tag string) (string, error) {
 	// Look for the tags within the input, ignoring any text before or after
-	pattern := fmt.Sprintf(`(?s)<%s>\n?(.*?)\n?</%s>`, tag, tag)
+	pattern := fmt.Sprintf(`(?s)<\s*%s\s*>\s*(.*?)\s*<\s*/%s\s*>`, tag, tag)
 	re := regexp.MustCompile(pattern)
 	matches := re.FindStringSubmatch(input)
 	if len(matches) == 2 {
@@ -28,4 +28,9 @@ func ParseCommitMessage(input string) (string, error) {
 // ParseReviewComments extracts the review comments from the AI response
 func ParseReviewComments(input string) (string, error) {
 	return ParseTaggedContent(input, "review_comments")
+}
+
+// ParseSecurityReview extracts the security review from the AI response
+func ParseSecurityReview(input string) (string, error) {
+	return ParseTaggedContent(input, "security_review")
 }

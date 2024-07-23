@@ -40,6 +40,8 @@ func (p Prompt) Format(input string) (string, error) {
 			"function_or_class": parts[0],
 			"language":          parts[1],
 		}
+	case "security_review":
+		data = map[string]string{"CodeToReview": input}
 	default:
 		return "", fmt.Errorf("unknown prompt type: %s", p.Name)
 	}
@@ -68,12 +70,13 @@ func loadTemplate(name string) (*template.Template, error) {
 }
 
 var (
-	Commit, _      = loadTemplate("commit")
-	Summarize, _   = loadTemplate("summarize")
-	Readme, _      = loadTemplate("readme")
-	CodeReview, _  = loadTemplate("codereview")
-	CodeSummary, _ = loadTemplate("code_summary")
-	UnitTest, _    = loadTemplate("unit_test")
+	Commit, _         = loadTemplate("commit")
+	Summarize, _      = loadTemplate("summarize")
+	Readme, _         = loadTemplate("readme")
+	CodeReview, _     = loadTemplate("codereview")
+	CodeSummary, _    = loadTemplate("code_summary")
+	UnitTest, _       = loadTemplate("unit_test")
+	SecurityReview, _ = loadTemplate("security_review")
 
 	AllPrompts = []Prompt{
 		{Name: "commit", Description: "Generate a git commit message", Template: Commit},
@@ -82,6 +85,7 @@ var (
 		{Name: "codereview", Description: "Generate code review comments", Template: CodeReview},
 		{Name: "code_summary", Description: "Summarize code structure and design", Template: CodeSummary},
 		{Name: "unit_test", Description: "Generate unit tests for a function or class", Template: UnitTest},
+		{Name: "security_review", Description: "Perform a security review of the code", Template: SecurityReview},
 	}
 )
 
