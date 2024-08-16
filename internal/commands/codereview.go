@@ -12,9 +12,8 @@ import (
 
 var codeReviewCmd = &cobra.Command{
 	Use:   "codereview [file]",
-	Short: "Generate a code review for a given file",
-	Long:  `Analyze the provided code file and generate constructive code review comments.`,
-	Args:  cobra.ExactArgs(1),
+	Short: "Generate a code review for a given file or stdin input",
+	Long:  `Analyze the provided code file or stdin input and generate constructive code review comments.`,
 	RunE:  runCodeReviewCommand,
 }
 
@@ -24,12 +23,29 @@ func InitCodeReviewCommand(rootCmd *cobra.Command) {
 }
 
 func runCodeReviewCommand(cmd *cobra.Command, args []string) error {
-	filename := args[0]
+	var content string
+	var err error
 
-	// Read the content of the file
-	content, err := readFile(filename)
-	if err != nil {
-		return fmt.Errorf("error reading file: %w", err)
+	if len(args) > 0 {
+		// Read from file if a filename is provided
+		content, err = readFileContent(args[0])
+		if err != nil {
+			return fmt.Errorf("error reading file: %w", err)
+		}
+	} else {
+		// Read from stdin if no filename is provided
+		content, err = readInput(args)
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+	}
+
+	// If there's no input, inform the user and exit
+	if content == "" {
+		fmt.Println("No input received. Please provide a file or pipe content to stdin.")
+		fmt.Println("Usage: intu codereview [file]")
+		fmt.Println("   or: cat file | intu codereview")
+		return nil
 	}
 
 	// Select the AI provider
@@ -70,7 +86,8 @@ func runCodeReviewCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func readFile(filename string) (string, error) {
+// readFileContent reads the content of a file
+func readFileContent(filename string) (string, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return "", err

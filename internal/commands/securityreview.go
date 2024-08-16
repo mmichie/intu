@@ -27,7 +27,7 @@ func runSecurityReviewCommand(cmd *cobra.Command, args []string) error {
 
 	if len(args) > 0 {
 		// Read from file if a filename is provided
-		content, err = readFile(args[0])
+		content, err = readFileContent(args[0])
 		if err != nil {
 			return fmt.Errorf("error reading file: %w", err)
 		}
