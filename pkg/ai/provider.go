@@ -32,6 +32,8 @@ func NewProvider(name string) (Provider, error) {
 		return NewClaudeAIProvider()
 	case "gemini":
 		return NewGeminiAIProvider()
+	case "grok":
+		return NewGrokProvider()
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
