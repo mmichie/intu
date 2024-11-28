@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mmichie/intu/internal/ai"
+	"github.com/mmichie/intu/pkg/ai"
 	"github.com/spf13/viper"
 )
 

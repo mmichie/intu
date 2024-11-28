@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mmichie/intu/internal/ai"
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
+	"github.com/mmichie/intu/pkg/ai"
 	"github.com/mmichie/intu/pkg/prompts"
 )
 

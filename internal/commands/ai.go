@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mmichie/intu/internal/ui"
 	"github.com/mmichie/intu/pkg/intu"
 	"github.com/mmichie/intu/pkg/prompts"
-	"github.com/mmichie/intu/ui/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
