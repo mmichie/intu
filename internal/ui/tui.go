@@ -48,20 +48,20 @@ func (ch *chatHistory) clear() {
 	ch.currentPos = 0
 }
 
+type Agent interface {
+	Process(ctx context.Context, input, prompt string) (string, error)
+}
+
 type model struct {
 	viewport viewport.Model
 	textarea textarea.Model
 	history  chatHistory
 	err      error
-	aiClient AIClient
+	agent    Agent
 	ctx      context.Context
 }
 
-type AIClient interface {
-	ProcessWithAI(ctx context.Context, input, prompt string) (string, error)
-}
-
-func NewModel(ctx context.Context, aiClient AIClient, width, height int) model {
+func NewModel(ctx context.Context, agent Agent, width, height int) model {
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
@@ -72,7 +72,7 @@ func NewModel(ctx context.Context, aiClient AIClient, width, height int) model {
 	return model{
 		textarea: ta,
 		viewport: vp,
-		aiClient: aiClient,
+		agent:    agent,
 		ctx:      ctx,
 		history:  chatHistory{},
 	}
@@ -134,7 +134,7 @@ func (m model) addUserMessage(message string) model {
 }
 
 func (m model) processAIResponse(prompt string) model {
-	response, err := m.aiClient.ProcessWithAI(m.ctx, prompt, prompt)
+	response, err := m.agent.Process(m.ctx, prompt, "")
 	if err != nil {
 		m.err = fmt.Errorf("AI processing error: %w", err)
 		m.history.addMessage("Error: " + err.Error())
@@ -168,8 +168,8 @@ func (m model) View() string {
 	) + "\n\n(ctrl+c to quit, ctrl+l to clear history)"
 }
 
-func StartTUI(ctx context.Context, aiClient AIClient, width, height int) error {
-	p := tea.NewProgram(NewModel(ctx, aiClient, width, height), tea.WithAltScreen())
+func StartTUI(ctx context.Context, agent Agent, width, height int) error {
+	p := tea.NewProgram(NewModel(ctx, agent, width, height), tea.WithAltScreen())
 	_, err := p.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run TUI: %w", err)
