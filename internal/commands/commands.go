@@ -48,3 +48,11 @@ var (
 		RunE:  runSecurityReviewCommand,
 	}
 )
+
+func init() {
+	// Initialize ask command flags
+	askCmd.Flags().StringSliceP("parallel", "p", nil, "Run providers in parallel (comma-separated)")
+	askCmd.Flags().StringSliceP("serial", "s", nil, "Run providers serially (comma-separated)")
+	askCmd.Flags().BoolP("best", "b", false, "Use AI to pick best response")
+	askCmd.Flags().String("separator", "\n---\n", "Separator for concatenated responses")
+}

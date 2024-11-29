@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 
+	"github.com/mmichie/intu/pkg/ai"
 	"github.com/mmichie/intu/pkg/prompts"
 	"github.com/spf13/cobra"
 )
@@ -45,10 +46,58 @@ func runAskCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	userPrompt := args[0]
-	input, err := readInput(args[1:])
-	if err != nil {
-		return fmt.Errorf("error reading input for ask command: %w", err)
+
+	parallel, _ := cmd.Flags().GetStringSlice("parallel")
+	serial, _ := cmd.Flags().GetStringSlice("serial")
+	bestPicker, _ := cmd.Flags().GetBool("best")
+	separator, _ := cmd.Flags().GetString("separator")
+
+	var pipeline ai.Pipeline
+	if len(parallel) > 0 {
+		providers := make([]ai.Provider, len(parallel))
+		for i, name := range parallel {
+			provider, err := ai.NewProvider(name)
+			if err != nil {
+				return err
+			}
+			providers[i] = provider
+		}
+
+		var combiner ai.ResultCombiner
+		if bestPicker {
+			defaultProvider, err := selectProvider()
+			if err != nil {
+				return err
+			}
+			combiner = ai.NewBestPickerCombiner(defaultProvider)
+		} else {
+			combiner = ai.NewConcatCombiner(separator)
+		}
+
+		pipeline = ai.NewParallelPipeline(providers, combiner)
+	} else if len(serial) > 0 {
+		providers := make([]ai.Provider, len(serial))
+		for i, name := range serial {
+			provider, err := ai.NewProvider(name)
+			if err != nil {
+				return err
+			}
+			providers[i] = provider
+		}
+		pipeline = ai.NewSerialPipeline(providers)
+	} else {
+		provider, err := selectProvider()
+		if err != nil {
+			return err
+		}
+		pipeline = ai.NewSerialPipeline([]ai.Provider{provider})
 	}
 
-	return processWithAI(cmd.Context(), input, userPrompt)
+	result, err := pipeline.Execute(cmd.Context(), userPrompt)
+	if err != nil {
+		return fmt.Errorf("error executing pipeline: %w", err)
+	}
+
+	fmt.Println(result)
+	return nil
 }
