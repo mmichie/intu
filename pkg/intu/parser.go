@@ -13,16 +13,20 @@ func ParseTaggedContent(input, tag string) (string, error) {
 	re := regexp.MustCompile(pattern)
 	matches := re.FindStringSubmatch(input)
 	if len(matches) == 2 {
-		return strings.TrimSpace(matches[1]), nil
+		return matches[1], nil
 	}
 
 	// If we haven't found anything, return an error
-	return "", fmt.Errorf("no content found between <%s> tags", tag)
+	return "", fmt.Errorf("no content found <%s> tags", tag)
 }
 
 // ParseCommitMessage extracts the commit message from the AI response
 func ParseCommitMessage(input string) (string, error) {
-	return ParseTaggedContent(input, "commit_message")
+	message, err := ParseTaggedContent(input, "commit_message")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(message, " \t\r\n") + "\n", nil
 }
 
 // ParseReviewComments extracts the review comments from the AI response

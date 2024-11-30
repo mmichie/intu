@@ -2,6 +2,8 @@ package commands
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/mmichie/intu/pkg/ai"
 	"github.com/mmichie/intu/pkg/prompts"
@@ -46,6 +48,16 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error parsing generated commit message: %w", err)
 	}
 
-	fmt.Print(commitMessage)
+	if _, err := io.WriteString(os.Stdout, commitMessage); err != nil {
+		return fmt.Errorf("error writing commit message: %w", err)
+	}
+
+	// Force write a final newline if not present
+	if len(commitMessage) == 0 || commitMessage[len(commitMessage)-1] != '\n' {
+		if _, err := io.WriteString(os.Stdout, "\n"); err != nil {
+			return fmt.Errorf("error writing final newline: %w", err)
+		}
+	}
+
 	return nil
 }
