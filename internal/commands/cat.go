@@ -14,14 +14,14 @@ import (
 
 	"github.com/mmichie/intu/internal/fileops"
 	"github.com/mmichie/intu/internal/filters"
-
+	"github.com/mmichie/intu/internal/rle"
 	"github.com/spf13/cobra"
 )
 
 var (
-	recursive, jsonOutput, listFilters, extendedMetadata bool
-	pattern                                              string
-	filterNames, ignorePatterns                          []string
+	recursive, jsonOutput, rleOutput, listFilters, extendedMetadata bool
+	pattern                                                         string
+	filterNames, ignorePatterns                                     []string
 )
 
 // CatCommandError is a custom error type for the cat command
@@ -67,7 +67,8 @@ func InitCatCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(catCmd)
 	catCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively search for files")
 	catCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
-	catCmd.Flags().StringVarP(&pattern, "pattern", "p", "", `File pattern to match (supports full regex and paths, e.g., "routes/templates/settings.*\.go")`)
+	catCmd.Flags().BoolVarP(&rleOutput, "rle", "c", false, "Output in RLE compressed format")
+	catCmd.Flags().StringVarP(&pattern, "pattern", "p", "", `File pattern to match (supports full regex and paths)`)
 	catCmd.Flags().StringSliceVarP(&filterNames, "filters", "f", nil, "List of filters to apply (comma-separated)")
 	catCmd.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", nil, "Patterns to ignore (can be specified multiple times)")
 	catCmd.Flags().BoolVarP(&listFilters, "list-filters", "l", false, "List all available filters")
@@ -121,15 +122,21 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no files found matching the pattern '%s'", pattern)
 	}
 
-	if jsonOutput {
+	switch {
+	case jsonOutput:
 		if err := outputJSON(os.Stdout, results); err != nil {
 			return fmt.Errorf("error outputting JSON: %w", err)
 		}
-	} else {
+	case rleOutput:
+		if err := outputRLE(os.Stdout, results); err != nil {
+			return fmt.Errorf("error outputting RLE: %w", err)
+		}
+	default:
 		if err := outputText(os.Stdout, results); err != nil {
 			return fmt.Errorf("error outputting text: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -275,6 +282,24 @@ func outputJSON(w io.Writer, results []fileops.FileInfo) error {
 	if err := encoder.Encode(jsonResults); err != nil {
 		return fmt.Errorf("error encoding JSON: %w", err)
 	}
+	return nil
+}
+
+func outputRLE(w io.Writer, results []fileops.FileInfo) error {
+	var files []rle.FileOutput
+
+	for _, info := range results {
+		files = append(files, rle.CompressFile(info.RelativePath, info.Content))
+	}
+
+	output := rle.NewBatchOutput(files)
+
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(output); err != nil {
+		return fmt.Errorf("error encoding RLE output: %w", err)
+	}
+
 	return nil
 }
 
