@@ -63,6 +63,7 @@ var catCmd = &cobra.Command{
 	RunE:  runCatCommand,
 }
 
+// InitCatCommand wires up the cat command
 func InitCatCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(catCmd)
 	catCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively search for files")
@@ -92,12 +93,12 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 	var results []fileops.FileInfo
 	var err error
 
+	// Single-file mode if pattern is empty & there's exactly one arg
 	if pattern == "" && len(args) == 1 {
-		// Single file mode
 		file := args[0]
-		info, err := processFile(cmd.Context(), fileOps, file, options.Extended, appliedFilters)
-		if err != nil {
-			return fmt.Errorf("error processing file '%s': %w", file, err)
+		info, e := processFile(cmd.Context(), fileOps, file, options.Extended, appliedFilters)
+		if e != nil {
+			return fmt.Errorf("error processing file '%s': %w", file, e)
 		}
 		results = []fileops.FileInfo{info}
 	} else {
@@ -124,22 +125,23 @@ func runCatCommand(cmd *cobra.Command, args []string) error {
 
 	switch {
 	case jsonOutput:
-		if err := outputJSON(os.Stdout, results); err != nil {
-			return fmt.Errorf("error outputting JSON: %w", err)
+		if e := outputJSON(os.Stdout, results); e != nil {
+			return fmt.Errorf("error outputting JSON: %w", e)
 		}
 	case rleOutput:
-		if err := outputRLE(os.Stdout, results); err != nil {
-			return fmt.Errorf("error outputting RLE: %w", err)
+		// Updated approach: uses new substring-based RLE code
+		if e := outputRLE(os.Stdout, results); e != nil {
+			return fmt.Errorf("error outputting RLE: %w", e)
 		}
 	default:
-		if err := outputText(os.Stdout, results); err != nil {
-			return fmt.Errorf("error outputting text: %w", err)
+		if e := outputText(os.Stdout, results); e != nil {
+			return fmt.Errorf("error outputting text: %w", e)
 		}
 	}
-
 	return nil
 }
 
+// processFiles matches files and processes them
 func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern string, options fileops.Options, filters []filters.Filter) ([]fileops.FileInfo, error) {
 	files, err := findFilesWithRegex(ctx, pattern, options)
 	if err != nil {
@@ -154,111 +156,67 @@ func processFiles(ctx context.Context, fileOps fileops.FileOperator, pattern str
 		case <-ctx.Done():
 			return results, ctx.Err()
 		default:
-			info, err := processFile(ctx, fileOps, file, options.Extended, filters)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("error processing file '%s': %w", file, err))
+			info, e := processFile(ctx, fileOps, file, options.Extended, filters)
+			if e != nil {
+				errs = append(errs, fmt.Errorf("error processing file '%s': %w", file, e))
 			} else {
 				results = append(results, info)
 			}
 		}
-		time.Sleep(time.Millisecond) // Prevent tight looping
 	}
-
 	if len(errs) > 0 {
 		return results, errors.Join(errs...)
 	}
 	return results, nil
 }
 
-func findFilesWithRegex(ctx context.Context, pattern string, options fileops.Options) ([]string, error) {
-	var files []string
-	var regexPattern *regexp.Regexp
-	var err error
-
-	// If the pattern is not a full path, treat it as a regex
-	if !filepath.IsAbs(pattern) && !strings.Contains(pattern, string(os.PathSeparator)) {
-		regexPattern, err = regexp.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("invalid regex pattern: %w", err)
-		}
+// outputRLE uses the new substring-based RLE code from rle.go
+func outputRLE(w io.Writer, results []fileops.FileInfo) error {
+	// 1. Gather all contents across all files
+	var allContents []string
+	for _, info := range results {
+		allContents = append(allContents, info.Content)
 	}
 
-	err = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	// 2. Find repeated substrings (adjust as desired)
+	patterns := rle.FindGlobalPatterns(allContents, 4, 20)
 
-		if !options.Recursive && info.IsDir() && path != "." {
-			return filepath.SkipDir
-		}
-
-		for _, ignore := range options.Ignore {
-			if matched, _ := filepath.Match(ignore, filepath.Base(path)); matched {
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		// If it's a full path pattern, use filepath.Match
-		if filepath.IsAbs(pattern) || strings.Contains(pattern, string(os.PathSeparator)) {
-			matched, err := filepath.Match(pattern, path)
-			if err != nil {
-				return fmt.Errorf("error matching path: %w", err)
-			}
-			if matched {
-				files = append(files, path)
-			}
-		} else if regexPattern != nil {
-			// Use regex for matching if it's not a full path
-			if regexPattern.MatchString(path) {
-				files = append(files, path)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("error walking directory: %w", err)
+	// Build a consistent token map for these patterns
+	tokenMap := make(map[string]string)
+	for i, pat := range patterns {
+		tokenStr := fmt.Sprintf("@%d", i)
+		tokenMap[tokenStr] = pat.Text
 	}
 
-	return files, nil
+	// 3. Replace substrings + RLE in each file
+	var fileOutputs []rle.FileOutput
+	for _, info := range results {
+		compressed := info.Content
+		// Replace (boundary-agnostic) from biggest to smaller substrings
+		for i, pat := range patterns {
+			t := fmt.Sprintf("@%d", i)
+			compressed = strings.ReplaceAll(compressed, pat.Text, t)
+		}
+		// Now do run-length encoding
+		compressed = rle.DoRLE(compressed, 10)
+
+		fileOutputs = append(fileOutputs, rle.FileOutput{
+			RelativePath: info.RelativePath,
+			RLEContent:   compressed,
+		})
+	}
+
+	// 4. Build final batch output and encode as JSON
+	output := rle.NewBatchOutput(fileOutputs, tokenMap)
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(output); err != nil {
+		return fmt.Errorf("error encoding RLE output: %w", err)
+	}
+	return nil
 }
 
-func processFile(ctx context.Context, fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
-	content, err := fileOps.ReadFile(ctx, file)
-	if err != nil {
-		return fileops.FileInfo{}, fmt.Errorf("error reading file %s: %w", file, err)
-	}
-
-	for _, filter := range filters {
-		content = filter.Process(content)
-	}
-
-	if extended {
-		return fileOps.GetExtendedFileInfo(ctx, file, content)
-	}
-	return fileOps.GetBasicFileInfo(ctx, file, content)
-}
-
-func getAppliedFilters(names []string) []filters.Filter {
-	var appliedFilters []filters.Filter
-	for _, name := range names {
-		if filter := filters.Get(name); filter != nil {
-			appliedFilters = append(appliedFilters, filter)
-		} else {
-			fmt.Fprintf(os.Stderr, "Warning: No filter found with name '%s'\n", name)
-		}
-	}
-	return appliedFilters
-}
-
+// outputJSON prints the file contents in JSON format
 func outputJSON(w io.Writer, results []fileops.FileInfo) error {
 	var jsonResults []FileInfoJSON
 	for _, info := range results {
@@ -285,24 +243,7 @@ func outputJSON(w io.Writer, results []fileops.FileInfo) error {
 	return nil
 }
 
-func outputRLE(w io.Writer, results []fileops.FileInfo) error {
-	var files []rle.FileOutput
-
-	for _, info := range results {
-		files = append(files, rle.CompressFile(info.RelativePath, info.Content))
-	}
-
-	output := rle.NewBatchOutput(files)
-
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(output); err != nil {
-		return fmt.Errorf("error encoding RLE output: %w", err)
-	}
-
-	return nil
-}
-
+// outputText prints files in a human-readable text format
 func outputText(w io.Writer, results []fileops.FileInfo) error {
 	for _, info := range results {
 		if err := writeSection(w, "File Metadata"); err != nil {
@@ -367,6 +308,100 @@ func writeField(w io.Writer, fieldName string, fieldValue interface{}) error {
 	return nil
 }
 
+// findFilesWithRegex scans the current dir (recursively if requested) matching either a full path pattern
+// or a regex for the filename. It also respects ignore patterns.
+func findFilesWithRegex(ctx context.Context, pattern string, options fileops.Options) ([]string, error) {
+	var files []string
+	var regexPattern *regexp.Regexp
+	var err error
+
+	// If the pattern is not a full path, treat it as a regex
+	if !filepath.IsAbs(pattern) && !strings.Contains(pattern, string(os.PathSeparator)) {
+		regexPattern, err = regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex pattern: %w", err)
+		}
+	}
+
+	err = filepath.Walk(".", func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !options.Recursive && info.IsDir() && path != "." {
+			return filepath.SkipDir
+		}
+		for _, ignore := range options.Ignore {
+			matched, _ := filepath.Match(ignore, filepath.Base(path))
+			if matched {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		// If it's a full path pattern, use filepath.Match
+		if filepath.IsAbs(pattern) || strings.Contains(pattern, string(os.PathSeparator)) {
+			matched, matchErr := filepath.Match(pattern, path)
+			if matchErr != nil {
+				return fmt.Errorf("error matching path: %w", matchErr)
+			}
+			if matched {
+				files = append(files, path)
+			}
+		} else if regexPattern != nil {
+			// Use regex for matching if it's not a full path
+			if regexPattern.MatchString(path) {
+				files = append(files, path)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error walking directory: %w", err)
+	}
+	return files, nil
+}
+
+// processFile reads, applies filters, and returns a FileInfo with extended or basic metadata
+func processFile(ctx context.Context, fileOps fileops.FileOperator, file string, extended bool, filters []filters.Filter) (fileops.FileInfo, error) {
+	content, err := fileOps.ReadFile(ctx, file)
+	if err != nil {
+		return fileops.FileInfo{}, fmt.Errorf("error reading file %s: %w", file, err)
+	}
+	for _, filter := range filters {
+		select {
+		case <-ctx.Done():
+			return fileops.FileInfo{}, ctx.Err()
+		default:
+			content = filter.Process(content)
+		}
+	}
+
+	if extended {
+		return fileOps.GetExtendedFileInfo(ctx, file, content)
+	}
+	return fileOps.GetBasicFileInfo(ctx, file, content)
+}
+
+// getAppliedFilters returns the filters that match the user's provided names
+func getAppliedFilters(names []string) []filters.Filter {
+	var appliedFilters []filters.Filter
+	for _, name := range names {
+		if filter := filters.Get(name); filter != nil {
+			appliedFilters = append(appliedFilters, filter)
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: No filter found with name '%s'\n", name)
+		}
+	}
+	return appliedFilters
+}
+
+// listAvailableFilters outputs all registered filters
 func listAvailableFilters(w io.Writer) error {
 	if len(filters.Registry) == 0 {
 		return errors.New("no filters available")
