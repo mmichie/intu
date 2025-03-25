@@ -72,6 +72,19 @@ func runModelsCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// createProviders creates a slice of providers from a slice of provider names
+func createProviders(providerNames []string) ([]aikit.Provider, error) {
+	providers := make([]aikit.Provider, len(providerNames))
+	for i, name := range providerNames {
+		provider, err := aikit.NewProvider(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create provider '%s': %w", name, err)
+		}
+		providers[i] = provider
+	}
+	return providers, nil
+}
+
 func runAskCommand(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("ask command requires at least one argument for the prompt")
@@ -79,20 +92,31 @@ func runAskCommand(cmd *cobra.Command, args []string) error {
 
 	userPrompt := args[0]
 
-	parallel, _ := cmd.Flags().GetStringSlice("parallel")
-	serial, _ := cmd.Flags().GetStringSlice("serial")
-	bestPicker, _ := cmd.Flags().GetBool("best")
-	separator, _ := cmd.Flags().GetString("separator")
+	parallel, err := cmd.Flags().GetStringSlice("parallel")
+	if err != nil {
+		fmt.Printf("Warning: error getting 'parallel' flag: %v\n", err)
+	}
+
+	serial, err := cmd.Flags().GetStringSlice("serial")
+	if err != nil {
+		fmt.Printf("Warning: error getting 'serial' flag: %v\n", err)
+	}
+
+	bestPicker, err := cmd.Flags().GetBool("best")
+	if err != nil {
+		fmt.Printf("Warning: error getting 'best' flag: %v\n", err)
+	}
+
+	separator, err := cmd.Flags().GetString("separator")
+	if err != nil {
+		fmt.Printf("Warning: error getting 'separator' flag: %v\n", err)
+	}
 
 	var pipeline aikit.Pipeline
 	if len(parallel) > 0 {
-		providers := make([]aikit.Provider, len(parallel))
-		for i, name := range parallel {
-			provider, err := aikit.NewProvider(name)
-			if err != nil {
-				return err
-			}
-			providers[i] = provider
+		providers, err := createProviders(parallel)
+		if err != nil {
+			return err
 		}
 
 		var combiner aikit.ResultCombiner
@@ -108,13 +132,9 @@ func runAskCommand(cmd *cobra.Command, args []string) error {
 
 		pipeline = aikit.NewParallelPipeline(providers, combiner)
 	} else if len(serial) > 0 {
-		providers := make([]aikit.Provider, len(serial))
-		for i, name := range serial {
-			provider, err := aikit.NewProvider(name)
-			if err != nil {
-				return err
-			}
-			providers[i] = provider
+		providers, err := createProviders(serial)
+		if err != nil {
+			return err
 		}
 		pipeline = aikit.NewSerialPipeline(providers)
 	} else {
