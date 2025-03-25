@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/mmichie/intu/pkg/aikit"
 	"github.com/mmichie/intu/pkg/aikit/prompt"
@@ -38,6 +39,37 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 	}
 
 	return processWithAI(cmd.Context(), input, formattedPrompt)
+}
+
+func runModelsCommand(cmd *cobra.Command, args []string) error {
+	modelsMap, err := aikit.GetProviderModels()
+	if err != nil {
+		return fmt.Errorf("error getting models: %w", err)
+	}
+
+	// Get a sorted list of provider names for consistent output
+	providers := make([]string, 0, len(modelsMap))
+	for provider := range modelsMap {
+		providers = append(providers, provider)
+	}
+	sort.Strings(providers)
+
+	// Display models for each provider
+	for _, provider := range providers {
+		models := modelsMap[provider]
+		if len(models) == 0 {
+			fmt.Printf("Provider: %s (no models available or API key not set)\n", provider)
+			continue
+		}
+
+		fmt.Printf("Provider: %s\n", provider)
+		for _, model := range models {
+			fmt.Printf("  - %s\n", model)
+		}
+		fmt.Println()
+	}
+
+	return nil
 }
 
 func runAskCommand(cmd *cobra.Command, args []string) error {

@@ -12,6 +12,13 @@ var (
 		RunE:  runAICommand,
 	}
 
+	modelsCmd = &cobra.Command{
+		Use:   "models",
+		Short: "List available AI models",
+		Long:  `List all available AI models by provider.`,
+		RunE:  runModelsCommand,
+	}
+
 	askCmd = &cobra.Command{
 		Use:   "ask <prompt> [input]",
 		Short: "Ask the AI a free-form question",

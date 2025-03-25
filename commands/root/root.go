@@ -13,6 +13,7 @@ const (
 	DefaultOpenAIModel = "gpt-4"
 	DefaultClaudeModel = "claude-3-5-sonnet-20240620"
 	DefaultGeminiModel = "gemini-1.5-pro"
+	DefaultGrokModel   = "grok-1"
 	DefaultProvider    = "openai"
 )
 
@@ -33,12 +34,14 @@ including file content analysis and generating git commit messages.`,
 		viper.SetDefault("openai_model", DefaultOpenAIModel)
 		viper.SetDefault("claude_model", DefaultClaudeModel)
 		viper.SetDefault("gemini_model", DefaultGeminiModel)
+		viper.SetDefault("grok_model", DefaultGrokModel)
 		viper.SetDefault("default_provider", DefaultProvider)
 
 		// Bind environment variables
 		viper.BindEnv("openai_api_key", "OPENAI_API_KEY")
 		viper.BindEnv("claude_api_key", "CLAUDE_API_KEY")
 		viper.BindEnv("gemini_api_key", "GEMINI_API_KEY")
+		viper.BindEnv("xai_api_key", "XAI_API_KEY")
 
 		// Set the provider if specified in the command line
 		if provider != "" {

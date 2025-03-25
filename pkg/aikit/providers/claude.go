@@ -11,6 +11,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+// SupportedClaudeModels is a list of supported Claude models
+var SupportedClaudeModels = map[string]bool{
+	"claude-3-5-sonnet-20240620": true,
+	"claude-3-opus-20240229":     true,
+	"claude-3-sonnet-20240229":   true,
+	"claude-3-haiku-20240307":    true,
+	"claude-2.1":                 true,
+	"claude-2.0":                 true,
+}
+
 type ClaudeAIProvider struct {
 	BaseProvider
 }
@@ -26,7 +36,10 @@ func NewClaudeAIProvider() (*ClaudeAIProvider, error) {
 			URL:    "https://api.anthropic.com/v1/messages",
 		},
 	}
-	provider.Model = provider.GetEnvOrDefault("CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
+
+	// Get model from environment or use default, and validate it
+	modelFromEnv := provider.GetEnvOrDefault("CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
+	provider.SetModel(modelFromEnv, SupportedClaudeModels, "claude-3-5-sonnet-20240620")
 	return provider, nil
 }
 
@@ -78,4 +91,13 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 
 func (p *ClaudeAIProvider) Name() string {
 	return "claude"
+}
+
+// GetSupportedModels returns a list of supported models for this provider
+func (p *ClaudeAIProvider) GetSupportedModels() []string {
+	models := make([]string, 0, len(SupportedClaudeModels))
+	for model := range SupportedClaudeModels {
+		models = append(models, model)
+	}
+	return models
 }

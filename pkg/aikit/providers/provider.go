@@ -9,6 +9,10 @@ import (
 type Provider interface {
 	GenerateResponse(ctx context.Context, prompt string) (string, error)
 	Name() string
+
+	// Optional methods - implementing providers can support these
+	// for enhanced model handling
+	GetSupportedModels() []string // Returns supported models
 }
 
 // BaseProvider contains common provider fields and methods
@@ -24,4 +28,21 @@ func (p *BaseProvider) GetEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// GetSupportedModels is a default implementation that returns an empty slice
+// Providers should override this method to return their supported models
+func (p *BaseProvider) GetSupportedModels() []string {
+	return []string{}
+}
+
+// SetModel sets the model for this provider if it's supported
+// Returns true if the model was set, false if it wasn't supported
+func (p *BaseProvider) SetModel(model string, supportedModels map[string]bool, defaultModel string) bool {
+	if supportedModels[model] {
+		p.Model = model
+		return true
+	}
+	p.Model = defaultModel
+	return false
 }

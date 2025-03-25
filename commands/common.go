@@ -11,7 +11,17 @@ import (
 )
 
 func selectProvider() (aikit.Provider, error) {
-	providerName := viper.GetString("provider")
+	// Get default provider from config
+	providerName := viper.GetString("default_provider")
+	if providerName == "" {
+		providerName = "openai" // Fallback default
+	}
+
+	// If provider is specified in command line flags, use that instead
+	if flagProvider := viper.GetString("provider"); flagProvider != "" {
+		providerName = flagProvider
+	}
+
 	return aikit.NewProvider(providerName)
 }
 

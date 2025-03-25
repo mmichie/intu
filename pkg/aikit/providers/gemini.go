@@ -10,6 +10,14 @@ import (
 	"google.golang.org/api/option"
 )
 
+// SupportedGeminiModels is a list of supported Gemini models
+var SupportedGeminiModels = map[string]bool{
+	"gemini-1.5-pro":           true,
+	"gemini-2.5-pro-exp-03-25": true,
+	"gemini-1.5-flash":         true,
+	"gemini-1.0-pro":           true,
+}
+
 type GeminiAIProvider struct {
 	BaseProvider
 	client *genai.Client
@@ -35,7 +43,10 @@ func NewGeminiAIProvider() (*GeminiAIProvider, error) {
 		client: client,
 	}
 
-	provider.Model = provider.GetEnvOrDefault("GEMINI_MODEL", "gemini-1.5-pro")
+	// Get model from environment or use default, and validate it
+	modelFromEnv := provider.GetEnvOrDefault("GEMINI_MODEL", "gemini-1.5-pro")
+	provider.SetModel(modelFromEnv, SupportedGeminiModels, "gemini-1.5-pro")
+
 	provider.model = client.GenerativeModel(provider.Model)
 
 	return provider, nil
@@ -59,4 +70,13 @@ func (p *GeminiAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 
 func (p *GeminiAIProvider) Name() string {
 	return "gemini"
+}
+
+// GetSupportedModels returns a list of supported models for this provider
+func (p *GeminiAIProvider) GetSupportedModels() []string {
+	models := make([]string, 0, len(SupportedGeminiModels))
+	for model := range SupportedGeminiModels {
+		models = append(models, model)
+	}
+	return models
 }

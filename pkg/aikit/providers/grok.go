@@ -10,6 +10,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// SupportedGrokModels is a list of supported Grok models
+var SupportedGrokModels = map[string]bool{
+	"grok-1":      true,
+	"grok-beta":   true,
+	"grok-1-mini": true,
+}
+
 type GrokProvider struct {
 	BaseProvider
 }
@@ -25,7 +32,10 @@ func NewGrokProvider() (*GrokProvider, error) {
 			URL:    "https://api.x.ai/v1/chat/completions",
 		},
 	}
-	provider.Model = provider.GetEnvOrDefault("GROK_MODEL", "grok-beta")
+
+	// Get model from environment or use default, and validate it
+	modelFromEnv := provider.GetEnvOrDefault("GROK_MODEL", "grok-1")
+	provider.SetModel(modelFromEnv, SupportedGrokModels, "grok-1")
 	return provider, nil
 }
 
@@ -73,4 +83,13 @@ func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (str
 
 func (p *GrokProvider) Name() string {
 	return "grok"
+}
+
+// GetSupportedModels returns a list of supported models for this provider
+func (p *GrokProvider) GetSupportedModels() []string {
+	models := make([]string, 0, len(SupportedGrokModels))
+	for model := range SupportedGrokModels {
+		models = append(models, model)
+	}
+	return models
 }

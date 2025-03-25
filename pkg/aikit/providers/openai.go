@@ -10,6 +10,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+// SupportedOpenAIModels is a list of supported OpenAI models
+var SupportedOpenAIModels = map[string]bool{
+	"gpt-4":         true,
+	"gpt-4-turbo":   true,
+	"gpt-4o":        true,
+	"gpt-3.5-turbo": true,
+}
+
 type OpenAIProvider struct {
 	BaseProvider
 }
@@ -25,7 +33,10 @@ func NewOpenAIProvider() (*OpenAIProvider, error) {
 			URL:    "https://api.openai.com/v1/chat/completions",
 		},
 	}
-	provider.Model = provider.GetEnvOrDefault("OPENAI_MODEL", "gpt-4")
+
+	// Get model from environment or use default, and validate it
+	modelFromEnv := provider.GetEnvOrDefault("OPENAI_MODEL", "gpt-4")
+	provider.SetModel(modelFromEnv, SupportedOpenAIModels, "gpt-4")
 	return provider, nil
 }
 
@@ -73,4 +84,13 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (s
 
 func (p *OpenAIProvider) Name() string {
 	return "openai"
+}
+
+// GetSupportedModels returns a list of supported models for this provider
+func (p *OpenAIProvider) GetSupportedModels() []string {
+	models := make([]string, 0, len(SupportedOpenAIModels))
+	for model := range SupportedOpenAIModels {
+		models = append(models, model)
+	}
+	return models
 }
