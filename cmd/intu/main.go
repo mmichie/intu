@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmichie/intu/internal/commands/root"
+	"github.com/mmichie/intu/commands/root"
 )
 
 func main() {

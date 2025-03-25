@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/mmichie/intu/pkg/ai"
-	"github.com/mmichie/intu/pkg/prompts"
+	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/pkg/aikit/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +27,8 @@ func runCommitCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to select AI provider: %w", err)
 	}
 
-	agent := ai.NewAIAgent(provider)
-	commitPrompt, ok := prompts.GetPrompt("commit")
+	agent := aikit.NewAIAgent(provider)
+	commitPrompt, ok := prompt.GetPrompt("commit")
 	if !ok {
 		return fmt.Errorf("commit prompt not found")
 	}

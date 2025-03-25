@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mmichie/intu/internal/fileops"
-	"github.com/mmichie/intu/internal/filters"
-	"github.com/mmichie/intu/pkg/ai"
-	"github.com/mmichie/intu/pkg/prompts"
+	"github.com/mmichie/intu/fileops"
+	"github.com/mmichie/intu/filters"
+	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/pkg/aikit/prompt"
 )
 
 // Client is the main client
 type Client struct {
-	Provider ai.Provider
+	Provider aikit.Provider
 	FileOps  fileops.FileOperator
 	Filters  []filters.Filter
 }
 
 // NewClient creates a new Client
-func NewClient(provider ai.Provider) *Client {
+func NewClient(provider aikit.Provider) *Client {
 	return &Client{
 		Provider: provider,
 		FileOps:  fileops.NewFileOperator(),
@@ -53,7 +53,7 @@ func (c *Client) AddFilter(filter filters.Filter) {
 
 // GenerateCommitMessage generates a commit message based on the provided diff
 func (c *Client) GenerateCommitMessage(ctx context.Context, diffOutput string) (string, error) {
-	commitPrompt, found := prompts.GetPrompt("commit")
+	commitPrompt, found := prompt.GetPrompt("commit")
 	if !found {
 		return "", fmt.Errorf("commit prompt not found")
 	}

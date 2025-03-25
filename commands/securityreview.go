@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"github.com/mmichie/intu/pkg/ai"
-	"github.com/mmichie/intu/pkg/prompts"
+	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/pkg/aikit/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +26,8 @@ func runSecurityReviewCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to select AI provider: %w", err)
 	}
 
-	agent := ai.NewAIAgent(provider)
-	securityReviewPrompt, ok := prompts.GetPrompt("security_review")
+	agent := aikit.NewAIAgent(provider)
+	securityReviewPrompt, ok := prompt.GetPrompt("security_review")
 	if !ok {
 		return fmt.Errorf("security review prompt not found")
 	}

@@ -1,4 +1,4 @@
-package ai
+package providers
 
 import (
 	"bytes"
@@ -127,7 +127,7 @@ func executeRequest(req *http.Request, options ClientOptions) ([]byte, error) {
 	return nil, fmt.Errorf("API request to %s failed after %d attempts", req.URL, options.RetryAttempts+1)
 }
 
-func sendRequest(ctx context.Context, details RequestDetails, options ClientOptions) ([]byte, error) {
+func SendRequest(ctx context.Context, details RequestDetails, options ClientOptions) ([]byte, error) {
 	req, err := createRequest(ctx, details)
 	if err != nil {
 		return nil, err

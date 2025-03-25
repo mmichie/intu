@@ -1,4 +1,4 @@
-package ai
+package providers
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, prompt string) (s
 		RetryDelay:    time.Second,
 	}
 
-	responseBody, err := sendRequest(ctx, details, options)
+	responseBody, err := SendRequest(ctx, details, options)
 	if err != nil {
 		return "", err
 	}

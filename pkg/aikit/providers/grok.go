@@ -1,4 +1,4 @@
-package ai
+package providers
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (str
 		RetryDelay:    time.Second,
 	}
 
-	responseBody, err := sendRequest(ctx, details, options)
+	responseBody, err := SendRequest(ctx, details, options)
 	if err != nil {
 		return "", err
 	}

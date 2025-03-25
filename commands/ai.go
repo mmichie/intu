@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	tui "github.com/mmichie/intu/internal/ui"
-	"github.com/mmichie/intu/pkg/ai"
+	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -17,7 +17,7 @@ func processWithAI(ctx context.Context, input, promptText string) error {
 		return fmt.Errorf("failed to select AI provider: %w", err)
 	}
 
-	agent := ai.NewAIAgent(provider)
+	agent := aikit.NewAIAgent(provider)
 	result, err := agent.Process(ctx, input, promptText)
 	if err != nil {
 		return fmt.Errorf("error processing with AI: %w", err)
@@ -32,12 +32,12 @@ func runTUICommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	agent := ai.NewAIAgent(provider)
+	agent := aikit.NewAIAgent(provider)
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		width, height = 80, 24
 	}
 
-	return tui.StartTUI(cmd.Context(), agent, width, height)
+	return ui.StartTUI(cmd.Context(), agent, width, height)
 }

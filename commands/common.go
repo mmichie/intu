@@ -6,13 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mmichie/intu/pkg/ai"
+	"github.com/mmichie/intu/pkg/aikit"
 	"github.com/spf13/viper"
 )
 
-func selectProvider() (ai.Provider, error) {
+func selectProvider() (aikit.Provider, error) {
 	providerName := viper.GetString("provider")
-	return ai.NewProvider(providerName)
+	return aikit.NewProvider(providerName)
 }
 
 // Helper function to read input from args or stdin

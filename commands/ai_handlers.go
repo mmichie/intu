@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"github.com/mmichie/intu/pkg/ai"
-	"github.com/mmichie/intu/pkg/prompts"
+	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/pkg/aikit/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +22,7 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 	}
 
 	promptName := args[0]
-	prompt, ok := prompts.GetPrompt(promptName)
+	p, ok := prompt.GetPrompt(promptName)
 	if !ok {
 		return fmt.Errorf("unknown prompt: %s", promptName)
 	}
@@ -32,7 +32,7 @@ func runAICommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error reading input for AI command (prompt: %s): %w", promptName, err)
 	}
 
-	formattedPrompt, err := prompt.Format(input)
+	formattedPrompt, err := p.Format(input)
 	if err != nil {
 		return fmt.Errorf("error formatting prompt '%s' for AI command: %w", promptName, err)
 	}
@@ -52,45 +52,45 @@ func runAskCommand(cmd *cobra.Command, args []string) error {
 	bestPicker, _ := cmd.Flags().GetBool("best")
 	separator, _ := cmd.Flags().GetString("separator")
 
-	var pipeline ai.Pipeline
+	var pipeline aikit.Pipeline
 	if len(parallel) > 0 {
-		providers := make([]ai.Provider, len(parallel))
+		providers := make([]aikit.Provider, len(parallel))
 		for i, name := range parallel {
-			provider, err := ai.NewProvider(name)
+			provider, err := aikit.NewProvider(name)
 			if err != nil {
 				return err
 			}
 			providers[i] = provider
 		}
 
-		var combiner ai.ResultCombiner
+		var combiner aikit.ResultCombiner
 		if bestPicker {
 			defaultProvider, err := selectProvider()
 			if err != nil {
 				return err
 			}
-			combiner = ai.NewBestPickerCombiner(defaultProvider)
+			combiner = aikit.NewBestPickerCombiner(defaultProvider)
 		} else {
-			combiner = ai.NewConcatCombiner(separator)
+			combiner = aikit.NewConcatCombiner(separator)
 		}
 
-		pipeline = ai.NewParallelPipeline(providers, combiner)
+		pipeline = aikit.NewParallelPipeline(providers, combiner)
 	} else if len(serial) > 0 {
-		providers := make([]ai.Provider, len(serial))
+		providers := make([]aikit.Provider, len(serial))
 		for i, name := range serial {
-			provider, err := ai.NewProvider(name)
+			provider, err := aikit.NewProvider(name)
 			if err != nil {
 				return err
 			}
 			providers[i] = provider
 		}
-		pipeline = ai.NewSerialPipeline(providers)
+		pipeline = aikit.NewSerialPipeline(providers)
 	} else {
 		provider, err := selectProvider()
 		if err != nil {
 			return err
 		}
-		pipeline = ai.NewSerialPipeline([]ai.Provider{provider})
+		pipeline = aikit.NewSerialPipeline([]aikit.Provider{provider})
 	}
 
 	result, err := pipeline.Execute(cmd.Context(), userPrompt)

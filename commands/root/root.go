@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmichie/intu/internal/commands"
+	"github.com/mmichie/intu/commands"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

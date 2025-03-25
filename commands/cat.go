@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mmichie/intu/internal/fileops"
-	"github.com/mmichie/intu/internal/filters"
-	"github.com/mmichie/intu/internal/rle"
+	"github.com/mmichie/intu/fileops"
+	"github.com/mmichie/intu/filters"
+	"github.com/mmichie/intu/rle"
 	"github.com/spf13/cobra"
 )
 

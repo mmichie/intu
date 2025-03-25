@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"github.com/mmichie/intu/pkg/ai"
-	"github.com/mmichie/intu/pkg/prompts"
+	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/pkg/aikit/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +26,8 @@ func runCodeReviewCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to select AI provider: %w", err)
 	}
 
-	agent := ai.NewAIAgent(provider)
-	codeReviewPrompt, ok := prompts.GetPrompt("codereview")
+	agent := aikit.NewAIAgent(provider)
+	codeReviewPrompt, ok := prompt.GetPrompt("codereview")
 	if !ok {
 		return fmt.Errorf("code review prompt not found")
 	}

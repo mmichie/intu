@@ -1,4 +1,4 @@
-package ai
+package providers
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 		RetryDelay:    time.Second,
 	}
 
-	responseBody, err := sendRequest(ctx, details, options)
+	responseBody, err := SendRequest(ctx, details, options)
 	if err != nil {
 		return "", err
 	}
