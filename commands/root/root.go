@@ -20,6 +20,7 @@ const (
 var (
 	cfgFile  string
 	provider string
+	model    string
 	verbose  bool
 )
 
@@ -47,6 +48,13 @@ including file content analysis and generating git commit messages.`,
 		if provider != "" {
 			viper.Set("default_provider", provider)
 		}
+
+		// Set the model if specified in the command line
+		if model != "" {
+			selectedProvider := viper.GetString("default_provider")
+			modelKey := selectedProvider + "_model"
+			viper.Set(modelKey, model)
+		}
 	},
 }
 
@@ -58,10 +66,12 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.intu.yaml)")
-	RootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai, claude, or gemini)")
+	RootCmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai, claude, gemini, or grok)")
+	RootCmd.PersistentFlags().StringVar(&model, "model", "", "AI model to use (specific to the selected provider)")
 	RootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 
 	viper.BindPFlag("provider", RootCmd.PersistentFlags().Lookup("provider"))
+	viper.BindPFlag("model", RootCmd.PersistentFlags().Lookup("model"))
 	viper.BindPFlag("verbose", RootCmd.PersistentFlags().Lookup("verbose"))
 
 	// Initialize all commands
