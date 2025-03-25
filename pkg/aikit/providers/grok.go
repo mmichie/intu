@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mmichie/intu/pkg/httputil"
 	"github.com/pkg/errors"
 )
 
@@ -48,19 +49,19 @@ func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (str
 		"temperature": 0.7,
 	}
 
-	details := RequestDetails{
+	details := httputil.RequestDetails{
 		URL:         p.URL,
 		APIKey:      p.APIKey,
 		RequestBody: requestBody,
 	}
 
-	options := ClientOptions{
+	options := httputil.ClientOptions{
 		Timeout:       30 * time.Second,
 		RetryAttempts: 3,
 		RetryDelay:    time.Second,
 	}
 
-	responseBody, err := SendRequest(ctx, details, options)
+	responseBody, err := httputil.SendRequest(ctx, details, options)
 	if err != nil {
 		return "", err
 	}
