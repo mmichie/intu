@@ -27,6 +27,30 @@ var (
 		RunE:  runAskCommand,
 	}
 
+	juryCmd = &cobra.Command{
+		Use:   "jury <prompt> [input]",
+		Short: "Use an AI jury to evaluate responses",
+		Long:  `Send a prompt to multiple AI providers and use a jury to evaluate and select the best response.`,
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  runJuryCommand,
+	}
+
+	collabCmd = &cobra.Command{
+		Use:   "collab <prompt> [input]",
+		Short: "Collaborative discussion between AI providers",
+		Long:  `Start a multi-round collaborative discussion between AI providers to solve a problem or answer a question.`,
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  runCollabCommand,
+	}
+
+	pipelineCmd = &cobra.Command{
+		Use:   "pipeline <name> <prompt> [input]",
+		Short: "Run a predefined pipeline",
+		Long:  `Run a predefined pipeline configuration with the given prompt. Pipelines can combine multiple providers and processing steps.`,
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  runPipelineCommand,
+	}
+
 	tuiCmd = &cobra.Command{
 		Use:   "tui",
 		Short: "Start the Text User Interface",
@@ -62,4 +86,30 @@ func init() {
 	askCmd.Flags().StringSliceP("serial", "s", nil, "Run providers serially (comma-separated)")
 	askCmd.Flags().BoolP("best", "b", false, "Use AI to pick best response")
 	askCmd.Flags().String("separator", "\n---\n", "Separator for concatenated responses")
+
+	// Initialize jury command flags
+	juryCmd.Flags().StringSliceP("providers", "p", nil, "Providers to generate responses (comma-separated)")
+	juryCmd.Flags().StringSliceP("jurors", "j", nil, "Jury members to evaluate responses (defaults to providers if not specified)")
+	juryCmd.Flags().String("voting", "majority", "Voting method: majority, consensus, or weighted")
+
+	// Initialize collab command flags
+	collabCmd.Flags().StringSliceP("providers", "p", nil, "Providers to participate in collaboration (comma-separated)")
+	collabCmd.Flags().IntP("rounds", "r", 3, "Number of discussion rounds")
+
+	// Initialize pipeline command flags
+	pipelineCmd.Flags().BoolP("list", "l", false, "List available pipelines")
+	pipelineCmd.Flags().BoolP("create", "c", false, "Create a new pipeline")
+	pipelineCmd.Flags().String("type", "", "Pipeline type (serial, parallel, collaborative, nested)")
+	pipelineCmd.Flags().StringSliceP("providers", "p", nil, "Providers to use in the pipeline (comma-separated)")
+	pipelineCmd.Flags().String("combiner", "concat", "Combiner type for parallel pipelines (concat, best-picker, jury)")
+	pipelineCmd.Flags().String("judge", "", "Judge provider for best-picker combiner")
+	pipelineCmd.Flags().StringSliceP("jurors", "j", nil, "Jury members for jury combiner (comma-separated)")
+	pipelineCmd.Flags().String("voting", "majority", "Voting method for jury combiner (majority, consensus, weighted)")
+	pipelineCmd.Flags().String("separator", "\n\n", "Separator for concat combiner")
+	pipelineCmd.Flags().IntP("rounds", "r", 3, "Number of rounds for collaborative pipelines")
+
+	// Register new commands
+	aiCmd.AddCommand(juryCmd)
+	aiCmd.AddCommand(collabCmd)
+	aiCmd.AddCommand(pipelineCmd)
 }

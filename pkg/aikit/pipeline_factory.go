@@ -8,12 +8,42 @@ import (
 
 // NewSerialPipeline creates a new serial pipeline
 func NewSerialPipeline(providers []Provider) Pipeline {
-	return pipelines.NewSerialPipeline(providersToPipeline(providers))
+	return pipelinePipeline{
+		internal: pipelines.NewSerialPipeline(providersToPipeline(providers)),
+	}
 }
 
 // NewParallelPipeline creates a new parallel pipeline
 func NewParallelPipeline(providers []Provider, combiner ResultCombiner) Pipeline {
-	return pipelines.NewParallelPipeline(providersToPipeline(providers), combinerToPipeline(combiner))
+	return pipelinePipeline{
+		internal: pipelines.NewParallelPipeline(providersToPipeline(providers), combinerToPipeline(combiner)),
+	}
+}
+
+// NewCollaborativePipeline creates a new collaborative pipeline
+func NewCollaborativePipeline(providers []Provider, rounds int) Pipeline {
+	return pipelinePipeline{
+		internal: pipelines.NewCollaborativePipeline(providersToPipeline(providers), rounds),
+	}
+}
+
+// NewNestedPipeline creates a new nested pipeline
+func NewNestedPipeline(stages []Pipeline) Pipeline {
+	pipelineStages := make([]pipelines.Pipeline, len(stages))
+	for i, stage := range stages {
+		if pp, ok := stage.(pipelinePipeline); ok {
+			pipelineStages[i] = pp.internal
+		} else {
+			// Wrap non-internal pipelines
+			originalStage := stage
+			pipelineStages[i] = pipelines.NewPipelineAdapter(func(ctx context.Context, input string) (string, error) {
+				return originalStage.Execute(ctx, input)
+			})
+		}
+	}
+	return pipelinePipeline{
+		internal: pipelines.NewNestedPipeline(pipelineStages),
+	}
 }
 
 // NewBestPickerCombiner creates a new best picker combiner
@@ -27,6 +57,13 @@ func NewBestPickerCombiner(picker Provider) ResultCombiner {
 func NewConcatCombiner(separator string) ResultCombiner {
 	return &concatCombinerAdapter{
 		internal: pipelines.NewConcatCombiner(separator),
+	}
+}
+
+// NewJuryCombiner creates a new jury combiner
+func NewJuryCombiner(jurors []Provider, votingMethod string) ResultCombiner {
+	return &juryCombinerAdapter{
+		internal: pipelines.NewJuryCombiner(providersToPipeline(jurors), votingMethod),
 	}
 }
 
@@ -73,6 +110,21 @@ func (c *concatCombinerAdapter) Combine(ctx context.Context, results []ProviderR
 	return c.internal.Combine(ctx, pipelineResults)
 }
 
+type juryCombinerAdapter struct {
+	internal *pipelines.JuryCombiner
+}
+
+func (j *juryCombinerAdapter) Combine(ctx context.Context, results []ProviderResponse) (string, error) {
+	pipelineResults := make([]pipelines.ProviderResponse, len(results))
+	for i, r := range results {
+		pipelineResults[i] = pipelines.ProviderResponse{
+			ProviderName: r.ProviderName,
+			Content:      r.Content,
+		}
+	}
+	return j.internal.Combine(ctx, pipelineResults)
+}
+
 func providersToPipeline(providers []Provider) []pipelines.Provider {
 	result := make([]pipelines.Provider, len(providers))
 	for i, p := range providers {
@@ -86,6 +138,8 @@ func combinerToPipeline(combiner ResultCombiner) pipelines.ResultCombiner {
 	case *bestPickerCombinerAdapter:
 		return c.internal
 	case *concatCombinerAdapter:
+		return c.internal
+	case *juryCombinerAdapter:
 		return c.internal
 	default:
 		return &resultCombinerAdapter{combiner}
