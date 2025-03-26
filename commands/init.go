@@ -4,8 +4,8 @@ import "github.com/spf13/cobra"
 
 func InitAICommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(aiCmd)
+	rootCmd.AddCommand(tuiCmd)
 	aiCmd.AddCommand(askCmd)
-	aiCmd.AddCommand(tuiCmd)
 	aiCmd.AddCommand(modelsCmd)
 	InitDaemonCommand(rootCmd)
 	aiCmd.PersistentFlags().BoolP("list", "l", false, "List available prompts")
