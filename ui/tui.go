@@ -100,7 +100,7 @@ func NewModel(ctx context.Context, agent Agent, width, height int) model {
 		ctx:         ctx,
 		history:     history,
 		inputHeight: inputHeight,
-		statusBar:   "(ctrl+c to quit, ctrl+l to clear history)",
+		statusBar:   "(ctrl+c/ctrl+d to quit, ctrl+l to clear history)",
 		width:       width,
 		height:      height,
 	}
@@ -134,12 +134,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Block keyboard input while loading, except for Ctrl+C to quit
-		if m.loading && msg.Type != tea.KeyCtrlC {
+		// Block keyboard input while loading, except for Ctrl+C or Ctrl+D to quit
+		if m.loading && msg.Type != tea.KeyCtrlC && msg.Type != tea.KeyCtrlD {
 			return m, nil
 		}
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyCtrlC, tea.KeyCtrlD, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if m.textarea.Value() != "" {
