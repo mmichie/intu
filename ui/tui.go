@@ -52,30 +52,63 @@ type Agent interface {
 	Process(ctx context.Context, input, prompt string) (string, error)
 }
 
-type model struct {
-	viewport viewport.Model
-	textarea textarea.Model
-	history  chatHistory
+// Message for AI responses
+type aiResponseMsg struct {
+	response string
 	err      error
-	agent    Agent
-	ctx      context.Context
+}
+
+type model struct {
+	viewport    viewport.Model
+	textarea    textarea.Model
+	history     chatHistory
+	err         error
+	agent       Agent
+	ctx         context.Context
+	loading     bool
+	inputHeight int
+	statusBar   string
+	width       int
+	height      int
 }
 
 func NewModel(ctx context.Context, agent Agent, width, height int) model {
+	inputHeight := 3
+	statusHeight := 1
+	vpHeight := height - inputHeight - statusHeight - 2 // 2 for padding
+
+	if vpHeight < 10 {
+		vpHeight = 10 // Minimum reasonable height
+	}
+
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
+	ta.SetHeight(inputHeight)
+	ta.SetWidth(width - 2) // 2 for padding
 
-	vp := viewport.New(width, height)
-	vp.SetContent("Welcome to the chat! Type a message and press Enter to send.")
+	vp := viewport.New(width, vpHeight)
 
-	return model{
-		textarea: ta,
-		viewport: vp,
-		agent:    agent,
-		ctx:      ctx,
-		history:  chatHistory{},
+	// Initialize chat history
+	history := chatHistory{}
+	history.addMessage("Welcome to the chat! Type a message and press Enter to send.")
+
+	m := model{
+		viewport:    vp,
+		textarea:    ta,
+		agent:       agent,
+		ctx:         ctx,
+		history:     history,
+		inputHeight: inputHeight,
+		statusBar:   "(ctrl+c to quit, ctrl+l to clear history)",
+		width:       width,
+		height:      height,
 	}
+
+	// Initialize viewport content
+	m.updateViewport()
+
+	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -89,87 +122,112 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	)
 
 	switch msg := msg.(type) {
+	case aiResponseMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.err = fmt.Errorf("AI processing error: %w", msg.err)
+			m.history.addMessage("Error: " + msg.err.Error())
+		} else {
+			m.history.addMessage("AI: " + msg.response)
+		}
+		m.updateViewport()
+		return m, nil
+
 	case tea.KeyMsg:
+		// Block keyboard input while loading, except for Ctrl+C to quit
+		if m.loading && msg.Type != tea.KeyCtrlC {
+			return m, nil
+		}
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			return m.handleEnter()
+			if m.textarea.Value() != "" {
+				prompt := m.textarea.Value()
+				m.history.addMessage("You: " + prompt)
+				m.history.addInput(prompt)
+				m.textarea.Reset()
+				m.updateViewport()
+				m.loading = true
+				return m, func() tea.Msg {
+					response, err := m.agent.Process(m.ctx, prompt, "")
+					return aiResponseMsg{
+						response: response,
+						err:      err,
+					}
+				}
+			}
+			return m, nil
 		case tea.KeyUp:
-			return m.navigateHistory(-1)
+			m.textarea.SetValue(m.history.navigateHistory(-1))
+			return m, nil
 		case tea.KeyDown:
-			return m.navigateHistory(1)
+			m.textarea.SetValue(m.history.navigateHistory(1))
+			return m, nil
 		case tea.KeyCtrlL:
-			return m.clearHistory()
+			m.history.clear()
+			m.updateViewport()
+			return m, nil
 		}
+
 	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
+		inputHeight := 3
+		statusHeight := 1
+		vpHeight := msg.Height - inputHeight - statusHeight - 2 // 2 for padding
+
+		if vpHeight < 5 {
+			vpHeight = 5
+		}
+
 		m.viewport.Width = msg.Width
-		m.viewport.Height = msg.Height - 4 // Adjust for textarea and status line
-		m.textarea.SetWidth(msg.Width - 2) // Subtract 2 for padding
-		m.textarea.SetHeight(3)            // Set a fixed height for the textarea
+		m.viewport.Height = vpHeight
+
+		m.textarea.SetWidth(msg.Width - 2)
+		m.textarea.SetHeight(inputHeight)
+
+		m.updateViewport()
 		return m, nil
 	}
 
+	// Handle textarea and viewport updates
 	m.textarea, tiCmd = m.textarea.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
-func (m model) handleEnter() (tea.Model, tea.Cmd) {
-	if m.textarea.Value() != "" {
-		m = m.addUserMessage(m.textarea.Value())
-		m = m.processAIResponse(m.textarea.Value())
-		m.textarea.Reset()
+func (m *model) updateViewport() {
+	content := strings.Join(m.history.messages, "\n\n")
+	m.viewport.SetContent(content)
+
+	// Make sure we're scrolled to the bottom
+	if len(m.history.messages) > 0 {
 		m.viewport.GotoBottom()
 	}
-	return m, nil
-}
-
-func (m model) addUserMessage(message string) model {
-	m.history.addMessage("You: " + message)
-	m.history.addInput(message)
-	m.updateViewport()
-	return m
-}
-
-func (m model) processAIResponse(prompt string) model {
-	response, err := m.agent.Process(m.ctx, prompt, "")
-	if err != nil {
-		m.err = fmt.Errorf("AI processing error: %w", err)
-		m.history.addMessage("Error: " + err.Error())
-	} else {
-		m.history.addMessage("AI: " + response)
-	}
-	m.updateViewport()
-	return m
-}
-
-func (m model) navigateHistory(direction int) (tea.Model, tea.Cmd) {
-	m.textarea.SetValue(m.history.navigateHistory(direction))
-	return m, nil
-}
-
-func (m model) clearHistory() (tea.Model, tea.Cmd) {
-	m.history.clear()
-	m.updateViewport()
-	return m, nil
-}
-
-func (m *model) updateViewport() {
-	m.viewport.SetContent(strings.Join(m.history.messages, "\n"))
 }
 
 func (m model) View() string {
+	statusBar := m.statusBar
+	if m.loading {
+		statusBar = "Loading response... " + statusBar
+	}
+
 	return fmt.Sprintf(
-		"%s\n\n%s",
+		"%s\n\n%s\n\n%s",
 		m.viewport.View(),
 		m.textarea.View(),
-	) + "\n\n(ctrl+c to quit, ctrl+l to clear history)"
+		statusBar,
+	)
 }
 
 func StartTUI(ctx context.Context, agent Agent, width, height int) error {
-	p := tea.NewProgram(NewModel(ctx, agent, width, height), tea.WithAltScreen())
+	p := tea.NewProgram(
+		NewModel(ctx, agent, width, height),
+		tea.WithAltScreen(),
+	)
 	_, err := p.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run TUI: %w", err)
