@@ -52,14 +52,14 @@ This file tracks implementation progress for the AI Code Assistant features.
 
 ## Advanced Features
 
-- [ ] Context management
-  - [ ] Context store
-  - [ ] Hierarchical storage
-  - [ ] Persistence
+- [x] Context management
+  - [x] Context store
+  - [x] Hierarchical storage
+  - [x] Persistence
 
-- [ ] Task management
-  - [ ] TodoRead tool
-  - [ ] TodoWrite tool
+- [x] Task management
+  - [x] TodoRead tool
+  - [x] TodoWrite tool
 
 - [ ] UI enhancements
   - [ ] Response streaming
@@ -90,7 +90,7 @@ This file tracks implementation progress for the AI Code Assistant features.
 
 ## Current Focus
 
-Current development focus is on implementing utility tools.
+Current development focus is on UI enhancements and pipeline integration.
 
 Next steps:
 1. ✅ Enhance the provider interface to support function calling
@@ -105,3 +105,5 @@ Next steps:
 10. ✅ Implement execution tools (Bash with sandboxing)
 11. ✅ Implement Batch utility tool
 12. ✅ Implement Task agent tool
+13. ✅ Implement Context management system
+14. ✅ Implement Task management system with TodoRead and TodoWrite tools

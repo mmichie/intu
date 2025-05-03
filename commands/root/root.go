@@ -89,6 +89,8 @@ func init() {
 	commands.InitBashCommand(RootCmd)
 	commands.InitBatchCommand(RootCmd)
 	commands.InitTaskCommand(RootCmd)
+	commands.InitContextCommand(RootCmd)
+	commands.InitTodoToolsCommand(RootCmd)
 
 	RootCmd.AddCommand(versionCmd)
 }

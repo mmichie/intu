@@ -1,3 +1,4 @@
+// Package commands provides all the CLI commands for the application
 package commands
 
 import (
