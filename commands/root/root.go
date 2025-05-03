@@ -84,6 +84,9 @@ func init() {
 	commands.InitGrepCommand(RootCmd)
 	commands.InitGlobCommand(RootCmd)
 	commands.InitReadCommand(RootCmd)
+	commands.InitEditCommand(RootCmd)
+	commands.InitWriteCommand(RootCmd)
+	commands.InitBashCommand(RootCmd)
 
 	RootCmd.AddCommand(versionCmd)
 }

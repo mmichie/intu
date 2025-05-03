@@ -33,8 +33,13 @@ type BaseProvider struct {
 func NewProvider(name string) (Provider, error) {
 	switch name {
 	case "claude":
-		// Currently only Claude supports function calling
 		return providers.NewClaudeAIProvider()
+	case "openai":
+		return providers.NewOpenAIProvider()
+	case "gemini":
+		return providers.NewGeminiProvider()
+	case "grok":
+		return providers.NewGrokProvider()
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
@@ -42,8 +47,8 @@ func NewProvider(name string) (Provider, error) {
 
 // GetAvailableProviders returns a list of all available provider names
 func GetAvailableProviders() []string {
-	// For now, only return providers that support function calling
-	return []string{"claude"}
+	// Return all providers that support function calling
+	return []string{"claude", "openai", "gemini", "grok"}
 }
 
 // GetProviderModels returns a map of provider names to their supported models
