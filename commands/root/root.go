@@ -80,6 +80,7 @@ func init() {
 	commands.InitCodeReviewCommand(RootCmd)
 	commands.InitCommitCommand(RootCmd)
 	commands.InitSecurityReviewCommand(RootCmd)
+	commands.InitLSCommand(RootCmd)
 
 	RootCmd.AddCommand(versionCmd)
 }

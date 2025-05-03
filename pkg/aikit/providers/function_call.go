@@ -1,11 +1,8 @@
-// Package aikit provides AI interaction capabilities
-package aikit
+package providers
 
 import (
 	"encoding/json"
 	"errors"
-
-	"github.com/mmichie/intu/pkg/aikit/providers"
 )
 
 // FunctionDefinition represents a function that can be called by the LLM
@@ -28,6 +25,9 @@ type FunctionResponse struct {
 	Error    string      `json:"error,omitempty"`
 	Metadata interface{} `json:"metadata,omitempty"`
 }
+
+// FunctionExecutorFunc defines a function that executes function calls
+type FunctionExecutorFunc func(call FunctionCall) (FunctionResponse, error)
 
 // Validate ensures a function definition is properly formed
 func (fd *FunctionDefinition) Validate() error {
@@ -55,6 +55,3 @@ func (fd *FunctionDefinition) ToMap() map[string]interface{} {
 		"parameters":  fd.Parameters,
 	}
 }
-
-// FunctionExecutorFunc defines a function that executes function calls
-type FunctionExecutorFunc func(call providers.FunctionCall) (providers.FunctionResponse, error)

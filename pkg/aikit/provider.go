@@ -9,11 +9,19 @@ import (
 
 // Provider interface for AI providers
 type Provider interface {
+	// Core methods
 	GenerateResponse(ctx context.Context, prompt string) (string, error)
 	Name() string
-
-	// Optional methods for enhanced model handling
 	GetSupportedModels() []string
+
+	// Function calling capabilities
+	SupportsFunctionCalling() bool
+	RegisterFunction(def providers.FunctionDefinition) error
+	GenerateResponseWithFunctions(
+		ctx context.Context,
+		prompt string,
+		functionExecutor providers.FunctionExecutorFunc,
+	) (string, error)
 }
 
 // BaseProvider is now just a facade for backward compatibility
@@ -24,14 +32,9 @@ type BaseProvider struct {
 // NewProvider creates a new provider based on the name
 func NewProvider(name string) (Provider, error) {
 	switch name {
-	case "openai":
-		return providers.NewOpenAIProvider()
 	case "claude":
+		// Currently only Claude supports function calling
 		return providers.NewClaudeAIProvider()
-	case "gemini":
-		return providers.NewGeminiAIProvider()
-	case "grok":
-		return providers.NewGrokProvider()
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
@@ -39,7 +42,8 @@ func NewProvider(name string) (Provider, error) {
 
 // GetAvailableProviders returns a list of all available provider names
 func GetAvailableProviders() []string {
-	return []string{"openai", "claude", "gemini", "grok"}
+	// For now, only return providers that support function calling
+	return []string{"claude"}
 }
 
 // GetProviderModels returns a map of provider names to their supported models

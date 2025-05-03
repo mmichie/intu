@@ -16,10 +16,10 @@ This file tracks implementation progress for the AI Code Assistant features.
   - [x] Permission levels 
   - [x] Tool registry
 
-- [ ] Provider abstraction
-  - [ ] Enhanced provider interface
-  - [ ] Function call support in provider
-  - [ ] Claude adapter
+- [x] Provider abstraction
+  - [x] Enhanced provider interface
+  - [x] Function call support in provider
+  - [x] Claude adapter
   - [ ] OpenAI adapter
   - [ ] Gemini adapter 
   - [ ] Grok adapter
@@ -33,7 +33,7 @@ This file tracks implementation progress for the AI Code Assistant features.
 ## Core Tools
 
 - [ ] Read-only tools
-  - [ ] LS tool
+  - [x] LS tool
   - [ ] Grep tool
   - [ ] Glob tool
   - [ ] Read tool
@@ -90,10 +90,13 @@ This file tracks implementation progress for the AI Code Assistant features.
 
 ## Current Focus
 
-Current development focus is on implementing the provider abstraction layer with function calling support.
+Current development focus is on integrating the function calling and tools with providers.
 
 Next steps:
-1. Enhance the provider interface to support function calling
-2. Implement the Claude adapter with function call support
-3. Create a simple read-only tool (LS) as practical demonstration
-4. Build the permission manager for security
+1. ✅ Enhance the provider interface to support function calling
+2. ✅ Implement the Claude adapter with function call support 
+3. ✅ Create a simple read-only tool (LS) as practical demonstration
+4. Connect the LS tool with the Claude adapter to demonstrate function calling
+5. Build the permission manager for security
+6. Implement additional read-only tools (Grep, Glob, Read)
+7. Create a CLI command to use function calling with tools

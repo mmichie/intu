@@ -7,12 +7,19 @@ import (
 
 // Provider interface
 type Provider interface {
+	// Core methods
 	GenerateResponse(ctx context.Context, prompt string) (string, error)
 	Name() string
-
-	// Optional methods - implementing providers can support these
-	// for enhanced model handling
 	GetSupportedModels() []string // Returns supported models
+
+	// Function calling capabilities
+	SupportsFunctionCalling() bool
+	RegisterFunction(def FunctionDefinition) error
+	GenerateResponseWithFunctions(
+		ctx context.Context,
+		prompt string,
+		functionExecutor FunctionExecutorFunc,
+	) (string, error)
 }
 
 // BaseProvider contains common provider fields and methods

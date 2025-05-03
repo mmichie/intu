@@ -12,6 +12,8 @@ var (
 		RunE:  runAICommand,
 	}
 
+	lsCmd = RegisterLSCommand()
+
 	modelsCmd = &cobra.Command{
 		Use:   "models",
 		Short: "List available AI models",

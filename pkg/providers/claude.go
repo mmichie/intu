@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mmichie/intu/pkg/aikit"
 	"github.com/mmichie/intu/pkg/httputil"
 	"github.com/pkg/errors"
 )
 
-// SupportedClaudeModels is a list of supported Claude models with feature capabilities
+// Updated supported Claude models with function calling support information
 var SupportedClaudeModels = map[string]struct {
 	Supported        bool
 	FunctionCalling  bool
@@ -27,32 +28,36 @@ var SupportedClaudeModels = map[string]struct {
 	"claude-2.0":                 {true, false, false, 100000},
 }
 
-type ClaudeAIProvider struct {
+// ClaudeAdapter implements the Provider interface for Anthropic's Claude
+type ClaudeAdapter struct {
 	BaseProvider
-	registeredFunctions map[string]FunctionDefinition
+	registeredFunctions map[string]aikit.FunctionDefinition
 }
 
-func NewClaudeAIProvider() (*ClaudeAIProvider, error) {
+// NewClaudeAdapter creates a new Claude provider adapter
+func NewClaudeAdapter() (*ClaudeAdapter, error) {
 	apiKey := os.Getenv("CLAUDE_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("CLAUDE_API_KEY environment variable is not set")
 	}
-	provider := &ClaudeAIProvider{
+
+	provider := &ClaudeAdapter{
 		BaseProvider: BaseProvider{
 			APIKey: apiKey,
 			URL:    "https://api.anthropic.com/v1/messages",
 		},
-		registeredFunctions: make(map[string]FunctionDefinition),
+		registeredFunctions: make(map[string]aikit.FunctionDefinition),
 	}
 
 	// Get model from environment or use default, and validate it
 	modelFromEnv := provider.GetEnvOrDefault("CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
 	provider.SetModel(modelFromEnv)
+
 	return provider, nil
 }
 
 // SetModel sets the model and validates it
-func (p *ClaudeAIProvider) SetModel(model string) bool {
+func (p *ClaudeAdapter) SetModel(model string) bool {
 	modelInfo, exists := SupportedClaudeModels[model]
 	if exists && modelInfo.Supported {
 		p.Model = model
@@ -65,13 +70,13 @@ func (p *ClaudeAIProvider) SetModel(model string) bool {
 }
 
 // SupportsFunctionCalling returns whether the current model supports function calling
-func (p *ClaudeAIProvider) SupportsFunctionCalling() bool {
+func (p *ClaudeAdapter) SupportsFunctionCalling() bool {
 	modelInfo, exists := SupportedClaudeModels[p.Model]
 	return exists && modelInfo.FunctionCalling
 }
 
 // RegisterFunction adds a function to the available functions
-func (p *ClaudeAIProvider) RegisterFunction(def FunctionDefinition) error {
+func (p *ClaudeAdapter) RegisterFunction(def aikit.FunctionDefinition) error {
 	if err := def.Validate(); err != nil {
 		return fmt.Errorf("invalid function definition: %w", err)
 	}
@@ -80,7 +85,8 @@ func (p *ClaudeAIProvider) RegisterFunction(def FunctionDefinition) error {
 	return nil
 }
 
-func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
+// GenerateResponse sends a prompt to Claude and returns the response
+func (p *ClaudeAdapter) GenerateResponse(ctx context.Context, prompt string) (string, error) {
 	requestBody := map[string]interface{}{
 		"model": p.Model,
 		"messages": []map[string]string{
@@ -113,39 +119,35 @@ func (p *ClaudeAIProvider) GenerateResponse(ctx context.Context, prompt string) 
 
 	var claudeAIResp struct {
 		Content []struct {
+			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
 	}
+
 	err = json.Unmarshal(responseBody, &claudeAIResp)
 	if err != nil {
-		return "", errors.Wrap(err, "error unmarshaling Claude AI response")
+		return "", errors.Wrap(err, "error unmarshaling Claude response")
 	}
+
 	if len(claudeAIResp.Content) == 0 {
-		return "", fmt.Errorf("no content in Claude AI response")
+		return "", fmt.Errorf("no content in Claude response")
 	}
-	return strings.TrimSpace(claudeAIResp.Content[0].Text), nil
-}
 
-func (p *ClaudeAIProvider) Name() string {
-	return "claude"
-}
-
-// GetSupportedModels returns a list of supported models for this provider
-func (p *ClaudeAIProvider) GetSupportedModels() []string {
-	models := make([]string, 0, len(SupportedClaudeModels))
-	for model, info := range SupportedClaudeModels {
-		if info.Supported {
-			models = append(models, model)
+	var textContent strings.Builder
+	for _, content := range claudeAIResp.Content {
+		if content.Type == "text" {
+			textContent.WriteString(content.Text)
 		}
 	}
-	return models
+
+	return strings.TrimSpace(textContent.String()), nil
 }
 
 // GenerateResponseWithFunctions sends a prompt to Claude with function calling
-func (p *ClaudeAIProvider) GenerateResponseWithFunctions(
+func (p *ClaudeAdapter) GenerateResponseWithFunctions(
 	ctx context.Context,
 	prompt string,
-	functionExecutor FunctionExecutorFunc,
+	functionExecutor aikit.FunctionExecutorFunc,
 ) (string, error) {
 	if !p.SupportsFunctionCalling() {
 		return "", fmt.Errorf("model %s does not support function calling", p.Model)
@@ -235,7 +237,7 @@ func (p *ClaudeAIProvider) GenerateResponseWithFunctions(
 			textResponse.WriteString("\n")
 		} else if content.Type == "function_call" && content.FunctionCall != nil {
 			// Extract function call details
-			fnCall := FunctionCall{
+			fnCall := aikit.FunctionCall{
 				Name:       content.FunctionCall.Name,
 				Parameters: content.FunctionCall.Parameters,
 			}
@@ -322,4 +324,77 @@ func (p *ClaudeAIProvider) GenerateResponseWithFunctions(
 	}
 
 	return strings.TrimSpace(textResponse.String()), nil
+}
+
+// Name returns the provider name
+func (p *ClaudeAdapter) Name() string {
+	return "claude"
+}
+
+// GetSupportedModels returns a list of supported models
+func (p *ClaudeAdapter) GetSupportedModels() []string {
+	models := make([]string, 0, len(SupportedClaudeModels))
+	for model, info := range SupportedClaudeModels {
+		if info.Supported {
+			models = append(models, model)
+		}
+	}
+	return models
+}
+
+// ClaudeProviderFactory creates Claude provider instances
+type ClaudeProviderFactory struct{}
+
+// NewClaudeProviderFactory creates a new Claude provider factory
+func NewClaudeProviderFactory() *ClaudeProviderFactory {
+	return &ClaudeProviderFactory{}
+}
+
+// Create returns a new Claude provider instance
+func (f *ClaudeProviderFactory) Create() (Provider, error) {
+	return NewClaudeAdapter()
+}
+
+// GetAvailableModels returns a list of available models for this provider
+func (f *ClaudeProviderFactory) GetAvailableModels() []string {
+	models := make([]string, 0, len(SupportedClaudeModels))
+	for model, info := range SupportedClaudeModels {
+		if info.Supported {
+			models = append(models, model)
+		}
+	}
+	return models
+}
+
+// GetCapabilities returns a list of capabilities supported by this provider
+func (f *ClaudeProviderFactory) GetCapabilities() []ProviderCapability {
+	// Get the model from environment or use default
+	envModel := os.Getenv("CLAUDE_MODEL")
+	if envModel == "" {
+		envModel = "claude-3-5-sonnet-20240620"
+	}
+
+	// Get the model info
+	modelInfo, exists := SupportedClaudeModels[envModel]
+	if !exists {
+		// Default to a model we know
+		modelInfo = SupportedClaudeModels["claude-3-5-sonnet-20240620"]
+	}
+
+	// Build capabilities list based on model features
+	capabilities := []ProviderCapability{}
+
+	if modelInfo.FunctionCalling {
+		capabilities = append(capabilities, CapabilityFunctionCalling)
+	}
+
+	if modelInfo.VisionCapable {
+		capabilities = append(capabilities, CapabilityVision)
+		capabilities = append(capabilities, CapabilityMultimodal)
+	}
+
+	// All Claude models support streaming
+	capabilities = append(capabilities, CapabilityStreaming)
+
+	return capabilities
 }

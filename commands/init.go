@@ -22,3 +22,7 @@ func InitCommitCommand(rootCmd *cobra.Command) {
 func InitSecurityReviewCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(securityReviewCmd)
 }
+
+func InitLSCommand(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(lsCmd)
+}
