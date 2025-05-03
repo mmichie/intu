@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -50,7 +51,7 @@ func (ch *chatHistory) clear() {
 }
 
 // StreamHandler is a function that handles streaming text chunks
-type StreamHandler func(chunk string) error
+type StreamHandler = func(chunk string) error
 
 // Agent interface defines the methods required for an AI agent in the UI
 type Agent interface {
@@ -76,6 +77,10 @@ type aiStreamChunkMsg struct {
 	done  bool
 	err   error
 }
+
+// Program reference for message passing
+var activeProgramMu sync.Mutex
+var activeProgram *tea.Program
 
 type model struct {
 	viewport        viewport.Model
@@ -141,8 +146,11 @@ func NewModel(ctx context.Context, agent Agent, width, height int) model {
 
 // spinnerTick is a command that updates the spinner
 func spinnerTick() tea.Msg {
-	return tea.KeyTick
+	return tickMsg{}
 }
+
+// Create a custom tick message type
+type tickMsg struct{}
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
@@ -160,7 +168,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	)
 
 	switch msg := msg.(type) {
-	case tea.KeyTick:
+	case tickMsg:
 		// Update spinner for loading animation
 		if m.loading {
 			m.updateSpinner()
@@ -201,19 +209,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Append chunk to current response and update viewport
+		// Update response with new chunk
 		if !m.streaming {
 			// First chunk, initialize streaming
 			m.streaming = true
-			m.currentResponse = msg.chunk
+			m.currentResponse = msg.chunk // Start with just this chunk
 			m.history.addMessage("AI: " + m.currentResponse)
 		} else {
-			// Append to existing response
-			m.currentResponse += msg.chunk
-			// Update the last message
+			// We're already streaming
 			lastMsgIndex := len(m.history.messages) - 1
 			if lastMsgIndex >= 0 && strings.HasPrefix(m.history.messages[lastMsgIndex], "AI: ") {
-				m.history.messages[lastMsgIndex] = "AI: " + m.currentResponse
+				// Complete replacement approach - don't append chunks which causes duplication
+				// Just add new chunk to our complete response
+				m.currentResponse += msg.chunk
+
+				// Replace the entire message text
+				newMsg := "AI: " + m.currentResponse
+
+				// If we somehow have duplication (e.g., "AI: Hello! Hello!"), fix it
+				if strings.Contains(newMsg, m.currentResponse+m.currentResponse) {
+					// Detected duplication, use just the current response
+					newMsg = "AI: " + m.currentResponse
+				}
+
+				// Update the message
+				m.history.messages[lastMsgIndex] = newMsg
 			}
 		}
 
@@ -240,26 +260,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// Check if agent supports streaming
 				if m.agent.SupportsStreaming() {
-					// Start streaming
-					return m, func() tea.Msg {
-						var streamErr error
-
-						// Create a channel for streaming chunks
-						handleChunk := func(chunk string) error {
-							// Send each chunk as a message
-							cmd := func() tea.Msg {
-								return aiStreamChunkMsg{chunk: chunk, done: false, err: nil}
-							}
-							tea.ExecCommand(cmd)()
-							return nil
-						}
-
-						// Process the request with streaming
-						streamErr = m.agent.ProcessStreaming(m.ctx, prompt, "", handleChunk)
-
-						// Send a final message indicating streaming is done
-						return aiStreamChunkMsg{chunk: "", done: true, err: streamErr}
-					}
+					return m, simpleStreamingCmd(m.agent, m.ctx, prompt)
 				} else {
 					// Fallback to non-streaming
 					return m, func() tea.Msg {
@@ -313,8 +314,89 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
+// streamingResponseCmd creates a command to handle streaming responses
+func streamingResponseCmd(agent Agent, ctx context.Context, prompt string) tea.Cmd {
+	return func() tea.Msg {
+		// Store the current program for use in the handler
+		activeProgramMu.Lock()
+		activeProgram = nil // We'll get it lazily when needed
+		activeProgramMu.Unlock()
+
+		// Create a channel for collecting chunks
+		chunkChan := make(chan string, 10)
+		doneChan := make(chan error, 1)
+
+		// Create a handler for streaming chunks
+		handleChunk := func(chunk string) error {
+			// Send the chunk via channel
+			chunkChan <- chunk
+
+			// For immediate UI update, try to send to program if available
+			activeProgramMu.Lock()
+			if activeProgram != nil {
+				activeProgram.Send(aiStreamChunkMsg{chunk: chunk, done: false})
+			}
+			activeProgramMu.Unlock()
+
+			return nil
+		}
+
+		// Start streaming in a goroutine
+		go func() {
+			err := agent.ProcessStreaming(ctx, prompt, "", handleChunk)
+			close(chunkChan)
+			doneChan <- err
+		}()
+
+		// Collect all chunks into a single response (fallback)
+		var fullResponse strings.Builder
+
+		// Wait for streaming to complete or first chunk
+		select {
+		case chunk, ok := <-chunkChan:
+			if !ok {
+				// Channel closed before any chunks
+				err := <-doneChan
+				return aiResponseMsg{
+					response: "",
+					err:      err,
+				}
+			}
+
+			// Got first chunk, update response and continue
+			fullResponse.WriteString(chunk)
+
+			// Return first chunk (signals start of streaming)
+			return aiStreamChunkMsg{
+				chunk: chunk,
+				done:  false,
+				err:   nil,
+			}
+
+		case err := <-doneChan:
+			// Streaming completed without any chunks
+			if err != nil {
+				return aiStreamChunkMsg{
+					chunk: "",
+					done:  true,
+					err:   err,
+				}
+			}
+
+			// No error but no chunks either, return empty response
+			return aiResponseMsg{
+				response: "",
+				err:      nil,
+			}
+		}
+	}
+}
+
 func (m *model) updateViewport() {
-	content := strings.Join(m.history.messages, "\n\n")
+	// Join messages with a single newline for cleaner rendering
+	// This creates a more compact chat history appearance
+	content := strings.Join(m.history.messages, "\n")
+
 	m.viewport.SetContent(content)
 
 	// Make sure we're scrolled to the bottom
@@ -354,25 +436,24 @@ func (m model) View() string {
 	)
 }
 
-// sendStreamingCommand creates a tea.Cmd that sends streaming chunks via a channel
-func sendStreamingCommand(chunk string, done bool, err error) tea.Cmd {
-	return func() tea.Msg {
-		return aiStreamChunkMsg{
-			chunk: chunk,
-			done:  done,
-			err:   err,
-		}
-	}
-}
-
+// StartTUI initializes and starts the text user interface
 func StartTUI(ctx context.Context, agent Agent, width, height int) error {
+	// Create new program
 	p := tea.NewProgram(
 		NewModel(ctx, agent, width, height),
 		tea.WithAltScreen(),
 	)
+
+	// Store program reference for message passing
+	activeProgramMu.Lock()
+	activeProgram = p
+	activeProgramMu.Unlock()
+
+	// Run the program
 	_, err := p.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run TUI: %w", err)
 	}
+
 	return nil
 }

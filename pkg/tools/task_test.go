@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/mmichie/intu/pkg/aikit"
+	"github.com/mmichie/intu/pkg/aikit/providers"
 )
 
 var ErrGenerationFailed = errors.New("generation failed")
@@ -17,10 +17,10 @@ var ErrGenerationFailed = errors.New("generation failed")
 type mockProvider struct {
 	responseText  string
 	shouldFail    bool
-	functionCalls []aikit.FunctionCall
+	functionCalls []providers.FunctionCall
 }
 
-func newMockProvider(responseText string, shouldFail bool, functionCalls []aikit.FunctionCall) *mockProvider {
+func newMockProvider(responseText string, shouldFail bool, functionCalls []providers.FunctionCall) *mockProvider {
 	return &mockProvider{
 		responseText:  responseText,
 		shouldFail:    shouldFail,
@@ -29,6 +29,9 @@ func newMockProvider(responseText string, shouldFail bool, functionCalls []aikit
 }
 
 func (p *mockProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
+	if p.shouldFail {
+		return "", ErrGenerationFailed
+	}
 	return p.responseText, nil
 }
 
@@ -56,6 +59,57 @@ func (p *mockProvider) GenerateResponseWithFunctions(
 
 func (p *mockProvider) RegisterFunctions(functions []aikit.FunctionDefinition) {
 	// Do nothing for the mock
+}
+
+// Implementing streaming methods required by the Provider interface
+func (p *mockProvider) SupportsStreaming() bool {
+	return true
+}
+
+func (p *mockProvider) GenerateStreamingResponse(ctx context.Context, prompt string, handler providers.StreamHandler) error {
+	if p.shouldFail {
+		return ErrGenerationFailed
+	}
+	// Simulate streaming by sending the response as a single chunk
+	return handler(p.responseText)
+}
+
+func (p *mockProvider) Name() string {
+	return "MockProvider"
+}
+
+func (p *mockProvider) GetSupportedModels() []string {
+	return []string{"mock-model"}
+}
+
+func (p *mockProvider) SupportsFunctionCalling() bool {
+	return true
+}
+
+func (p *mockProvider) RegisterFunction(def providers.FunctionDefinition) error {
+	// Do nothing for the mock
+	return nil
+}
+
+func (p *mockProvider) GenerateStreamingResponseWithFunctions(
+	ctx context.Context,
+	prompt string,
+	functionExecutor providers.FunctionExecutorFunc,
+	handler providers.StreamHandler,
+) error {
+	if p.shouldFail {
+		return ErrGenerationFailed
+	}
+
+	// If we have function calls to make, execute them
+	for _, call := range p.functionCalls {
+		resp, _ := functionExecutor(call)
+		// In a real implementation, we might use the response
+		_ = resp
+	}
+
+	// Simulate streaming by sending the response as a single chunk
+	return handler(p.responseText)
 }
 
 // mockToolForTask is a simple implementation for testing the task tool
@@ -133,7 +187,7 @@ func TestTaskTool_Execute(t *testing.T) {
 			provider: newMockProvider(
 				"Task completed with test tool",
 				false,
-				[]aikit.FunctionCall{
+				[]providers.FunctionCall{
 					{
 						Name:       "TestTool",
 						Parameters: json.RawMessage(`{}`),

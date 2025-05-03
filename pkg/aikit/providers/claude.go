@@ -171,15 +171,14 @@ func (p *ClaudeAIProvider) GenerateStreamingResponse(ctx context.Context, prompt
 		RetryDelay:    time.Second,
 	}
 
-	// Process the streaming response
-	streamHandler := func(chunk []byte) error {
+	// Process the streaming response using text handler
+	textStreamHandler := func(data string) error {
 		// Skip empty chunks and "[DONE]" messages
-		if len(chunk) == 0 || string(chunk) == "[DONE]" {
+		if data == "" || data == "[DONE]" {
 			return nil
 		}
 
 		// Remove the "data: " prefix if present
-		data := string(chunk)
 		if strings.HasPrefix(data, "data: ") {
 			data = strings.TrimPrefix(data, "data: ")
 		}
@@ -212,7 +211,7 @@ func (p *ClaudeAIProvider) GenerateStreamingResponse(ctx context.Context, prompt
 		return nil
 	}
 
-	err := httputil.SendStreamingRequest(ctx, details, options, streamHandler)
+	err := httputil.SendTextStreamingRequest(ctx, details, options, textStreamHandler)
 	if err != nil {
 		return errors.Wrap(err, "error in streaming request")
 	}
@@ -234,16 +233,8 @@ func (p *ClaudeAIProvider) GenerateStreamingResponseWithFunctions(
 		return err
 	}
 
-	// Simulate streaming by sending small chunks
-	chunks := splitIntoChunks(response, 15)
-	for _, chunk := range chunks {
-		if err := handler(chunk); err != nil {
-			return err
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	return nil
+	// Use the shared simulation method
+	return SimulateStreamingResponse(ctx, response, handler)
 }
 
 // splitIntoChunks splits a string into chunks of approximately the given size,

@@ -92,7 +92,9 @@ func processStreamingResponse(resp *http.Response, handler StreamChunkHandler) e
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Split(bufio.ScanLines)
 
+	lineCount := 0
 	for scanner.Scan() {
+		lineCount++
 		chunk := scanner.Bytes()
 
 		// Skip empty lines
@@ -123,4 +125,21 @@ func readFirstChunk(resp *http.Response) ([]byte, error) {
 	}
 
 	return buffer[:n], nil
+}
+
+// SendTextStreamingRequest sends a streaming request and processes chunks as text
+// This is a convenience wrapper around SendStreamingRequest that converts byte chunks to text
+func SendTextStreamingRequest(
+	ctx context.Context,
+	details RequestDetails,
+	options ClientOptions,
+	handler TextStreamHandler,
+) error {
+	// Create a wrapper that converts bytes to text
+	byteHandler := func(chunk []byte) error {
+		return handler(string(chunk))
+	}
+
+	// Use the byte-based streaming function
+	return SendStreamingRequest(ctx, details, options, byteHandler)
 }

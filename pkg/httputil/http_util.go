@@ -12,8 +12,11 @@ import (
 	"time"
 )
 
-// StreamChunkHandler is a callback function for handling streaming chunks
+// StreamChunkHandler is a callback function for handling streaming chunks as byte slices
 type StreamChunkHandler func([]byte) error
+
+// TextStreamHandler is a callback function for handling streaming chunks as text
+type TextStreamHandler func(text string) error
 
 // RequestDetails holds the details for an HTTP request
 type RequestDetails struct {

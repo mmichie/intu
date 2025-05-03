@@ -173,34 +173,31 @@ func (m *ContextManager) GetActiveContextData() (map[string]interface{}, error) 
 	// Start with an empty map
 	result := make(map[string]interface{})
 
-	// Get context at active path
-	var ctx *ContextData
-	var err error
-
-	if m.activePath == "/" {
-		// No active context, just use global contexts
-		contexts, err := m.store.List(GlobalContext, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		// Merge all global contexts
-		for _, c := range contexts {
-			for k, v := range c.Data {
-				result[k] = v
-			}
-		}
-
-		return result, nil
-	}
-
-	// Get the active context
-	ctx, err = m.store.GetByPath(m.activePath)
+	// First, always include global contexts regardless of the active path
+	globals, err := m.store.List(GlobalContext, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Merge its data
+	// Merge all global contexts
+	for _, c := range globals {
+		for k, v := range c.Data {
+			result[k] = v
+		}
+	}
+
+	// If we're at the root path, just return the global contexts
+	if m.activePath == "/" {
+		return result, nil
+	}
+
+	// Get the active context
+	ctx, err := m.store.GetByPath(m.activePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge its data (overriding globals if needed)
 	for k, v := range ctx.Data {
 		result[k] = v
 	}

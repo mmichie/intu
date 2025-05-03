@@ -7,8 +7,7 @@ import (
 	"github.com/mmichie/intu/pkg/aikit/providers"
 )
 
-// StreamHandler is a callback function for streaming responses
-type StreamHandler func(chunk string) error
+// Use providers.StreamHandler as our StreamHandler type
 
 type AIAgent struct {
 	provider Provider
@@ -34,7 +33,7 @@ func (a *AIAgent) SupportsStreaming() bool {
 }
 
 // ProcessStreaming processes an input with a streaming response
-func (a *AIAgent) ProcessStreaming(ctx context.Context, input, prompt string, handler StreamHandler) error {
+func (a *AIAgent) ProcessStreaming(ctx context.Context, input, prompt string, handler providers.StreamHandler) error {
 	fullPrompt := input
 	if prompt != "" && input != "" {
 		fullPrompt = fmt.Sprintf("%s\n\nInput: %s", prompt, input)
@@ -71,7 +70,7 @@ func (a *AIAgent) ProcessStreamingWithFunctions(
 	input,
 	prompt string,
 	functionExecutor providers.FunctionExecutorFunc,
-	handler StreamHandler,
+	handler providers.StreamHandler,
 ) error {
 	fullPrompt := input
 	if prompt != "" && input != "" {

@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"os"
+	"time"
 )
 
 // StreamHandler is a callback function for streaming responses
@@ -43,6 +44,66 @@ type BaseProvider struct {
 	APIKey string
 	Model  string
 	URL    string
+}
+
+// SupportsStreaming is a default implementation
+// Most providers support streaming, so default to true
+func (p *BaseProvider) SupportsStreaming() bool {
+	return true
+}
+
+// Note: BaseProvider doesn't implement GenerateResponse and GenerateResponseWithFunctions
+// Each provider must implement these methods.
+
+// We only add helper methods for streaming simulation in BaseProvider.
+
+// SimulateStreamingResponse is a helper to simulate streaming from a full response
+func SimulateStreamingResponse(ctx context.Context, fullResponse string, handler StreamHandler) error {
+	// Split into chunks and stream
+	chunks := splitTextIntoChunks(fullResponse, 15)
+	for _, chunk := range chunks {
+		// Check if context canceled
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		// Send chunk
+		if err := handler(chunk); err != nil {
+			return err
+		}
+
+		// Small delay to simulate streaming
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return nil
+}
+
+// splitTextIntoChunks splits a string into chunks of approximately the given size,
+// but tries to split at word boundaries
+func splitTextIntoChunks(text string, chunkSize int) []string {
+	var chunks []string
+	runes := []rune(text)
+
+	for i := 0; i < len(runes); {
+		end := i + chunkSize
+		if end > len(runes) {
+			end = len(runes)
+		} else {
+			// Try to find a word boundary
+			for j := end - 1; j > i; j-- {
+				if j < len(runes) && (runes[j] == ' ' || runes[j] == '\n') {
+					end = j + 1
+					break
+				}
+			}
+		}
+
+		chunks = append(chunks, string(runes[i:end]))
+		i = end
+	}
+
+	return chunks
 }
 
 // GetEnvOrDefault retrieves an environment variable or returns a default
