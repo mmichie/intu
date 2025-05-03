@@ -1,0 +1,99 @@
+// Package tools provides the tool system for AI-assisted code editing
+package tools
+
+import (
+	"context"
+	"encoding/json"
+	
+	"github.com/mmichie/intu/pkg/aikit"
+)
+
+// PermissionLevel defines the security level of a tool
+type PermissionLevel int
+
+const (
+	// PermissionReadOnly allows reading files and metadata but no modifications
+	PermissionReadOnly PermissionLevel = iota
+	
+	// PermissionShellExec allows executing shell commands
+	PermissionShellExec
+	
+	// PermissionFileWrite allows modifying and creating files
+	PermissionFileWrite
+	
+	// PermissionNetwork allows network access
+	PermissionNetwork
+)
+
+// String returns a string representation of the permission level
+func (p PermissionLevel) String() string {
+	names := map[PermissionLevel]string{
+		PermissionReadOnly:  "read-only",
+		PermissionShellExec: "shell-execution",
+		PermissionFileWrite: "file-write",
+		PermissionNetwork:   "network",
+	}
+	
+	if name, ok := names[p]; ok {
+		return name
+	}
+	return "unknown"
+}
+
+// Tool defines the interface for all tools
+type Tool interface {
+	// Name returns the unique identifier for this tool
+	Name() string
+	
+	// Description returns the tool's description
+	Description() string
+	
+	// ParameterSchema returns the JSON schema for the tool's parameters
+	ParameterSchema() map[string]interface{}
+	
+	// GetPermissionLevel returns the permission level required to use this tool
+	GetPermissionLevel() PermissionLevel
+	
+	// Execute runs the tool with the given parameters
+	Execute(ctx context.Context, params json.RawMessage) (interface{}, error)
+	
+	// ToFunctionDefinition converts the tool to a function definition
+	ToFunctionDefinition() aikit.FunctionDefinition
+}
+
+// BaseTool implements common Tool functionality
+type BaseTool struct {
+	ToolName        string
+	ToolDescription string
+	ToolParams      map[string]interface{}
+	PermLevel       PermissionLevel
+}
+
+// Name returns the tool's name
+func (b *BaseTool) Name() string {
+	return b.ToolName
+}
+
+// Description returns the tool's description
+func (b *BaseTool) Description() string {
+	return b.ToolDescription
+}
+
+// ParameterSchema returns the JSON schema for the tool's parameters
+func (b *BaseTool) ParameterSchema() map[string]interface{} {
+	return b.ToolParams
+}
+
+// GetPermissionLevel returns the permission level required to use this tool
+func (b *BaseTool) GetPermissionLevel() PermissionLevel {
+	return b.PermLevel
+}
+
+// ToFunctionDefinition converts the tool to a function definition
+func (b *BaseTool) ToFunctionDefinition() aikit.FunctionDefinition {
+	return aikit.FunctionDefinition{
+		Name:        b.ToolName,
+		Description: b.ToolDescription,
+		Parameters:  b.ToolParams,
+	}
+}
