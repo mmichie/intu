@@ -5,21 +5,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mmichie/intu/pkg/httputil"
 	"github.com/pkg/errors"
 )
 
-// SupportedGrokModels is a list of supported Grok models
-var SupportedGrokModels = map[string]bool{
-	"grok-1":      true,
-	"grok-beta":   true,
-	"grok-1-mini": true,
+// SupportedGrokModels is a list of supported Grok models with feature capabilities
+var SupportedGrokModels = map[string]struct {
+	Supported        bool
+	FunctionCalling  bool
+	VisionCapable    bool
+	MaxContextTokens int
+}{
+	"grok-1":      {true, true, false, 65536},
+	"grok-1-mini": {true, false, false, 32768},
 }
 
 type GrokProvider struct {
 	BaseProvider
+	registeredFunctions map[string]FunctionDefinition
 }
 
 func NewGrokProvider() (*GrokProvider, error) {
@@ -30,14 +36,44 @@ func NewGrokProvider() (*GrokProvider, error) {
 	provider := &GrokProvider{
 		BaseProvider: BaseProvider{
 			APIKey: apiKey,
-			URL:    "https://api.x.ai/v1/chat/completions",
+			URL:    "https://api.xai.com/v1/chat/completions",
 		},
+		registeredFunctions: make(map[string]FunctionDefinition),
 	}
 
 	// Get model from environment or use default, and validate it
 	modelFromEnv := provider.GetEnvOrDefault("GROK_MODEL", "grok-1")
-	provider.SetModel(modelFromEnv, SupportedGrokModels, "grok-1")
+	provider.SetModel(modelFromEnv)
 	return provider, nil
+}
+
+// SetModel sets the model and validates it
+func (p *GrokProvider) SetModel(model string) bool {
+	modelInfo, exists := SupportedGrokModels[model]
+	if exists && modelInfo.Supported {
+		p.Model = model
+		return true
+	}
+
+	// Default to a model with function calling
+	p.Model = "grok-1"
+	return false
+}
+
+// SupportsFunctionCalling returns whether the current model supports function calling
+func (p *GrokProvider) SupportsFunctionCalling() bool {
+	modelInfo, exists := SupportedGrokModels[p.Model]
+	return exists && modelInfo.FunctionCalling
+}
+
+// RegisterFunction adds a function to the available functions
+func (p *GrokProvider) RegisterFunction(def FunctionDefinition) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("invalid function definition: %w", err)
+	}
+
+	p.registeredFunctions[def.Name] = def
+	return nil
 }
 
 func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (string, error) {
@@ -46,6 +82,7 @@ func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (str
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},
 		},
+		"max_tokens":  2048,
 		"temperature": 0.7,
 	}
 
@@ -53,6 +90,9 @@ func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (str
 		URL:         p.URL,
 		APIKey:      p.APIKey,
 		RequestBody: requestBody,
+		AdditionalHeaders: map[string]string{
+			"Authorization": "Bearer " + p.APIKey,
+		},
 	}
 
 	options := httputil.ClientOptions{
@@ -73,13 +113,14 @@ func (p *GrokProvider) GenerateResponse(ctx context.Context, prompt string) (str
 			} `json:"message"`
 		} `json:"choices"`
 	}
-	if err = json.Unmarshal(responseBody, &grokResp); err != nil {
+	err = json.Unmarshal(responseBody, &grokResp)
+	if err != nil {
 		return "", errors.Wrap(err, "error unmarshaling Grok response")
 	}
 	if len(grokResp.Choices) == 0 {
-		return "", fmt.Errorf("no response from Grok")
+		return "", fmt.Errorf("no choices in Grok response")
 	}
-	return grokResp.Choices[0].Message.Content, nil
+	return strings.TrimSpace(grokResp.Choices[0].Message.Content), nil
 }
 
 func (p *GrokProvider) Name() string {
@@ -89,8 +130,186 @@ func (p *GrokProvider) Name() string {
 // GetSupportedModels returns a list of supported models for this provider
 func (p *GrokProvider) GetSupportedModels() []string {
 	models := make([]string, 0, len(SupportedGrokModels))
-	for model := range SupportedGrokModels {
-		models = append(models, model)
+	for model, info := range SupportedGrokModels {
+		if info.Supported {
+			models = append(models, model)
+		}
 	}
 	return models
+}
+
+// GenerateResponseWithFunctions sends a prompt to Grok with function calling
+func (p *GrokProvider) GenerateResponseWithFunctions(
+	ctx context.Context,
+	prompt string,
+	functionExecutor FunctionExecutorFunc,
+) (string, error) {
+	if !p.SupportsFunctionCalling() {
+		return "", fmt.Errorf("model %s does not support function calling", p.Model)
+	}
+
+	if len(p.registeredFunctions) == 0 {
+		return "", fmt.Errorf("no functions registered for function calling")
+	}
+
+	// Convert registered functions to tools format (similar to OpenAI)
+	var tools []map[string]interface{}
+	for _, fn := range p.registeredFunctions {
+		tools = append(tools, map[string]interface{}{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":        fn.Name,
+				"description": fn.Description,
+				"parameters":  fn.Parameters,
+			},
+		})
+	}
+
+	// Create initial request
+	requestBody := map[string]interface{}{
+		"model": p.Model,
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": prompt},
+		},
+		"max_tokens":  2048,
+		"temperature": 0.7,
+		"tools":       tools,
+	}
+
+	details := httputil.RequestDetails{
+		URL:         p.URL,
+		APIKey:      p.APIKey,
+		RequestBody: requestBody,
+		AdditionalHeaders: map[string]string{
+			"Authorization": "Bearer " + p.APIKey,
+		},
+	}
+
+	options := httputil.ClientOptions{
+		Timeout:       30 * time.Second,
+		RetryAttempts: 3,
+		RetryDelay:    time.Second,
+	}
+
+	responseBody, err := httputil.SendRequest(ctx, details, options)
+	if err != nil {
+		return "", err
+	}
+
+	// Parse the response
+	var grokResponse struct {
+		Choices []struct {
+			Message struct {
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string          `json:"name"`
+						Arguments json.RawMessage `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls,omitempty"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	err = json.Unmarshal(responseBody, &grokResponse)
+	if err != nil {
+		return "", errors.Wrap(err, "error unmarshaling Grok response")
+	}
+
+	if len(grokResponse.Choices) == 0 {
+		return "", fmt.Errorf("no choices in Grok response")
+	}
+
+	// Handle function calls and continue the conversation
+	var messages []map[string]interface{}
+	var textResponse strings.Builder
+
+	// Add the initial user message
+	messages = append(messages, map[string]interface{}{
+		"role":    "user",
+		"content": prompt,
+	})
+
+	// Add the assistant's response
+	messages = append(messages, map[string]interface{}{
+		"role":       "assistant",
+		"content":    grokResponse.Choices[0].Message.Content,
+		"tool_calls": grokResponse.Choices[0].Message.ToolCalls,
+	})
+
+	// If there's no tool calls, just return the text
+	if len(grokResponse.Choices[0].Message.ToolCalls) == 0 {
+		return strings.TrimSpace(grokResponse.Choices[0].Message.Content), nil
+	}
+
+	// Process tool calls
+	for _, toolCall := range grokResponse.Choices[0].Message.ToolCalls {
+		if toolCall.Type == "function" {
+			// Extract function call details
+			fnCall := FunctionCall{
+				Name:       toolCall.Function.Name,
+				Parameters: toolCall.Function.Arguments,
+			}
+
+			// Execute function and get result
+			fnResponse, err := functionExecutor(fnCall)
+			if err != nil {
+				// If function execution fails, include the error in the message
+				textResponse.WriteString(fmt.Sprintf("Error executing function %s: %s\n", fnCall.Name, err.Error()))
+				continue
+			}
+
+			// Convert function response to JSON
+			fnResponseJSON, err := json.Marshal(fnResponse.Content)
+			if err != nil {
+				textResponse.WriteString(fmt.Sprintf("Error serializing function response: %s\n", err.Error()))
+				continue
+			}
+
+			// Add the function response to the conversation
+			messages = append(messages, map[string]interface{}{
+				"role":         "tool",
+				"tool_call_id": toolCall.ID,
+				"content":      string(fnResponseJSON),
+			})
+		}
+	}
+
+	// Continue the conversation with the function response
+	continuationRequestBody := map[string]interface{}{
+		"model":       p.Model,
+		"messages":    messages,
+		"max_tokens":  2048,
+		"temperature": 0.7,
+		"tools":       tools,
+	}
+
+	details.RequestBody = continuationRequestBody
+	continuationResponseBody, err := httputil.SendRequest(ctx, details, options)
+	if err != nil {
+		return textResponse.String(), errors.Wrap(err, "error sending continuation request")
+	}
+
+	// Parse continuation response
+	var continuationResponse struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	err = json.Unmarshal(continuationResponseBody, &continuationResponse)
+	if err != nil {
+		return textResponse.String(), errors.Wrap(err, "error unmarshaling continuation response")
+	}
+
+	// Append continuation response text to our result
+	if len(continuationResponse.Choices) > 0 {
+		textResponse.WriteString(continuationResponse.Choices[0].Message.Content)
+	}
+
+	return strings.TrimSpace(textResponse.String()), nil
 }
