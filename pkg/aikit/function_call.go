@@ -32,15 +32,15 @@ func (fd *FunctionDefinition) Validate() error {
 	if fd.Name == "" {
 		return errors.New("function definition must have a name")
 	}
-	
+
 	if fd.Description == "" {
 		return errors.New("function definition must have a description")
 	}
-	
+
 	if fd.Parameters == nil {
 		return errors.New("function definition must have parameters schema (use empty object for no parameters)")
 	}
-	
+
 	return nil
 }
 

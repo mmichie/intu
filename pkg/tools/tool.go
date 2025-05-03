@@ -4,7 +4,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	
+
 	"github.com/mmichie/intu/pkg/aikit"
 )
 
@@ -14,13 +14,13 @@ type PermissionLevel int
 const (
 	// PermissionReadOnly allows reading files and metadata but no modifications
 	PermissionReadOnly PermissionLevel = iota
-	
+
 	// PermissionShellExec allows executing shell commands
 	PermissionShellExec
-	
+
 	// PermissionFileWrite allows modifying and creating files
 	PermissionFileWrite
-	
+
 	// PermissionNetwork allows network access
 	PermissionNetwork
 )
@@ -33,7 +33,7 @@ func (p PermissionLevel) String() string {
 		PermissionFileWrite: "file-write",
 		PermissionNetwork:   "network",
 	}
-	
+
 	if name, ok := names[p]; ok {
 		return name
 	}
@@ -44,19 +44,19 @@ func (p PermissionLevel) String() string {
 type Tool interface {
 	// Name returns the unique identifier for this tool
 	Name() string
-	
+
 	// Description returns the tool's description
 	Description() string
-	
+
 	// ParameterSchema returns the JSON schema for the tool's parameters
 	ParameterSchema() map[string]interface{}
-	
+
 	// GetPermissionLevel returns the permission level required to use this tool
 	GetPermissionLevel() PermissionLevel
-	
+
 	// Execute runs the tool with the given parameters
 	Execute(ctx context.Context, params json.RawMessage) (interface{}, error)
-	
+
 	// ToFunctionDefinition converts the tool to a function definition
 	ToFunctionDefinition() aikit.FunctionDefinition
 }

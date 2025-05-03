@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	
+
 	"github.com/mmichie/intu/pkg/aikit"
 )
 
@@ -26,16 +26,16 @@ func NewRegistry() *Registry {
 func (r *Registry) Register(tool Tool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	name := tool.Name()
 	if name == "" {
 		return fmt.Errorf("tool name cannot be empty")
 	}
-	
+
 	if _, exists := r.tools[name]; exists {
 		return fmt.Errorf("tool with name %q already registered", name)
 	}
-	
+
 	r.tools[name] = tool
 	return nil
 }
@@ -44,7 +44,7 @@ func (r *Registry) Register(tool Tool) error {
 func (r *Registry) Get(name string) (Tool, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	tool, exists := r.tools[name]
 	return tool, exists
 }
@@ -53,12 +53,12 @@ func (r *Registry) Get(name string) (Tool, bool) {
 func (r *Registry) List() []Tool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	result := make([]Tool, 0, len(r.tools))
 	for _, tool := range r.tools {
 		result = append(result, tool)
 	}
-	
+
 	return result
 }
 
@@ -66,14 +66,14 @@ func (r *Registry) List() []Tool {
 func (r *Registry) ListWithPermissionLevel(level PermissionLevel) []Tool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	var result []Tool
 	for _, tool := range r.tools {
 		if tool.GetPermissionLevel() == level {
 			result = append(result, tool)
 		}
 	}
-	
+
 	return result
 }
 
@@ -81,12 +81,12 @@ func (r *Registry) ListWithPermissionLevel(level PermissionLevel) []Tool {
 func (r *Registry) GetFunctionDefinitions() []aikit.FunctionDefinition {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	result := make([]aikit.FunctionDefinition, 0, len(r.tools))
 	for _, tool := range r.tools {
 		result = append(result, tool.ToFunctionDefinition())
 	}
-	
+
 	return result
 }
 
@@ -96,22 +96,22 @@ func (r *Registry) ExecuteTool(ctx context.Context, name string, params json.Raw
 	if !exists {
 		return nil, fmt.Errorf("tool %q not found", name)
 	}
-	
+
 	return tool.Execute(ctx, params)
 }
 
 // ExecuteFunctionCall executes a function call using the appropriate tool
 func (r *Registry) ExecuteFunctionCall(ctx context.Context, call aikit.FunctionCall) (aikit.FunctionResponse, error) {
 	result, err := r.ExecuteTool(ctx, call.Name, call.Parameters)
-	
+
 	response := aikit.FunctionResponse{
 		Name:    call.Name,
 		Content: result,
 	}
-	
+
 	if err != nil {
 		response.Error = err.Error()
 	}
-	
+
 	return response, nil
 }
