@@ -65,24 +65,22 @@ func FormatCodeBlocks(text string) string {
 	// Process each part
 	for i := 1; i < len(parts); i += 2 {
 		if i < len(parts) { // Inside a code block
-			// Ensure the code block has proper line breaks
+			// Preserve exactly as is - don't modify code blocks
+			// Just ensure there's a newline after the language indicator if present
 			codeLines := strings.Split(parts[i], "\n")
 
-			// Language indicator is on the first line, preserve it
 			if len(codeLines) > 0 {
 				language := strings.TrimSpace(codeLines[0])
-
-				// Ensure proper line breaks in the code content
+				// Reconstruct with original formatting preserved
 				if len(codeLines) > 1 {
+					// Join with original line breaks preserved
 					codeContent := strings.Join(codeLines[1:], "\n")
-
-					// Format the code content
-					formattedCode := ensureCodeLineBreaks(codeContent)
-
-					// Reconstruct the code block
-					parts[i] = language + "\n" + formattedCode
+					parts[i] = language + "\n" + codeContent
 				}
 			}
+
+			// Ensure code doesn't end with extra newlines that might break formatting
+			parts[i] = strings.TrimRight(parts[i], "\n") + "\n"
 		}
 	}
 
@@ -105,22 +103,10 @@ func FormatCodeBlocks(text string) string {
 	return result
 }
 
-// ensureCodeLineBreaks ensures code blocks have appropriate line breaks
+// This function is no longer used, as we preserve original formatting in code blocks
+// Left here for reference in case we want to re-enable automatic code formatting
 func ensureCodeLineBreaks(code string) string {
-	// Look for Python-style line continuations
-	code = strings.ReplaceAll(code, ":", ":\n")
-
-	// Ensure line breaks after common Python statement starters
-	statements := []string{"def ", "class ", "if ", "elif ", "else:", "for ", "while ", "try:", "except ", "finally:", "with "}
-	for _, stmt := range statements {
-		code = strings.ReplaceAll(code, stmt, "\n"+stmt)
-	}
-
-	// Fix multiple consecutive newlines
-	for strings.Contains(code, "\n\n\n") {
-		code = strings.ReplaceAll(code, "\n\n\n", "\n\n")
-	}
-
+	// We currently preserve original code formatting
 	return code
 }
 

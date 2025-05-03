@@ -71,33 +71,25 @@ type aiResponseMsg struct {
 	err      error
 }
 
-// Streaming chunk message
-type aiStreamChunkMsg struct {
-	chunk string
-	done  bool
-	err   error
-}
-
 // Program reference for message passing
 var activeProgramMu sync.Mutex
 var activeProgram *tea.Program
 
 type model struct {
-	viewport        viewport.Model
-	textarea        textarea.Model
-	history         chatHistory
-	err             error
-	agent           Agent
-	ctx             context.Context
-	loading         bool
-	streaming       bool
-	currentResponse string
-	inputHeight     int
-	statusBar       string
-	width           int
-	height          int
-	spinner         int
-	spinnerFrames   []string
+	viewport      viewport.Model
+	textarea      textarea.Model
+	history       chatHistory
+	err           error
+	agent         Agent
+	ctx           context.Context
+	loading       bool
+	streaming     bool
+	inputHeight   int
+	statusBar     string
+	width         int
+	height        int
+	spinner       int
+	spinnerFrames []string
 }
 
 func NewModel(ctx context.Context, agent Agent, width, height int) model {
@@ -186,64 +178,101 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateViewport()
 		return m, nil
 
-	case aiStreamChunkMsg:
+	case streamingMsg:
+		// Set streaming state based on the message
+		m.streaming = !msg.done
+		m.loading = !msg.done
+
+		// Handle errors
 		if msg.err != nil {
 			m.streaming = false
 			m.loading = false
 			m.err = fmt.Errorf("AI streaming error: %w", msg.err)
-			m.history.addMessage("Error: " + msg.err.Error())
+
+			// Check if this is a timeout error
+			if strings.Contains(msg.err.Error(), "timed out") {
+				// If we have some content, preserve it and add a note
+				if msg.content != "" {
+					// Content is already formatted by StreamBuffer
+					m.history.addMessage("AI: " + msg.content + "\n\n[Response timed out - showing partial content]")
+				} else {
+					m.history.addMessage("Error: " + msg.err.Error())
+				}
+			} else {
+				m.history.addMessage("Error: " + msg.err.Error())
+			}
+
 			m.updateViewport()
 			return m, nil
 		}
 
+		// Handle completion
 		if msg.done {
 			// Streaming completed
 			m.streaming = false
 			m.loading = false
+
 			// Add the complete response to history
-			if m.currentResponse != "" {
-				m.history.addMessage("AI: " + m.currentResponse)
-				m.currentResponse = ""
+			if msg.content != "" {
+				// Find and replace the in-progress message if it exists
+				// Search from newest to oldest to get the most recent matching message
+				lastMsgIndex := -1
+				for i := len(m.history.messages) - 1; i >= 0; i-- {
+					if strings.HasPrefix(m.history.messages[i], "AI: ") &&
+						!strings.Contains(m.history.messages[i], "[Response") {
+						lastMsgIndex = i
+						break
+					}
+				}
+
+				if lastMsgIndex >= 0 {
+					// Replace the existing message with already formatted content
+					m.history.messages[lastMsgIndex] = "AI: " + msg.content
+				} else {
+					// Add as a new message
+					m.history.addMessage("AI: " + msg.content)
+				}
 			}
+
 			m.updateViewport()
 			return m, nil
 		}
 
-		// Update response with new chunk
-		if !m.streaming {
-			// First chunk, initialize streaming
-			m.streaming = true
-			m.currentResponse = msg.chunk // Start with just this chunk
-			m.history.addMessage("AI: " + m.currentResponse)
-		} else {
-			// We're already streaming
-			lastMsgIndex := len(m.history.messages) - 1
-			if lastMsgIndex >= 0 && strings.HasPrefix(m.history.messages[lastMsgIndex], "AI: ") {
-				// Complete replacement approach - don't append chunks which causes duplication
-				// Just add new chunk to our complete response
-				m.currentResponse += msg.chunk
+		// This is an intermediate chunk update
+		if msg.content == "" {
+			// Skip empty updates
+			return m, nil
+		}
 
-				// Replace the entire message text
-				newMsg := "AI: " + m.currentResponse
-
-				// If we somehow have duplication (e.g., "AI: Hello! Hello!"), fix it
-				if strings.Contains(newMsg, m.currentResponse+m.currentResponse) {
-					// Detected duplication, use just the current response
-					newMsg = "AI: " + m.currentResponse
-				}
-
-				// Update the message
-				m.history.messages[lastMsgIndex] = newMsg
+		// Find the existing message if any, searching from the end of history
+		// to ensure we update the most recent message
+		lastMsgIndex := -1
+		for i := len(m.history.messages) - 1; i >= 0; i-- {
+			if strings.HasPrefix(m.history.messages[i], "AI: ") &&
+				!strings.Contains(m.history.messages[i], "[Response") {
+				lastMsgIndex = i
+				break
 			}
 		}
 
+		if lastMsgIndex >= 0 {
+			// Update the existing message with the already formatted content
+			m.history.messages[lastMsgIndex] = "AI: " + msg.content
+		} else {
+			// No message found, create a new one
+			m.history.addMessage("AI: " + msg.content)
+		}
+
 		m.updateViewport()
-		// Continue streaming animation
 		return m, nil
 
 	case tea.KeyMsg:
-		// Block keyboard input while loading or streaming, except for Ctrl+C or Ctrl+D to quit
-		if (m.loading || m.streaming) && msg.Type != tea.KeyCtrlC && msg.Type != tea.KeyCtrlD {
+		// Allow keyboard input during streaming - only block during initial loading
+		// Always allow quit commands
+		if (m.loading && !m.streaming) &&
+			msg.Type != tea.KeyCtrlC &&
+			msg.Type != tea.KeyCtrlD &&
+			msg.Type != tea.KeyEsc {
 			return m, nil
 		}
 		switch msg.Type {
@@ -251,6 +280,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if m.textarea.Value() != "" {
+				// Handle active streaming differently from just loading
+				if m.streaming {
+					// Only show interruption message if actually streaming content
+					m.streaming = false
+					m.loading = false
+
+					// Find the streaming message and mark it as interrupted
+					for i, message := range m.history.messages {
+						if strings.HasPrefix(message, "AI: ") && !strings.Contains(message, "[Response") {
+							m.history.messages[i] = message + "\n[Response interrupted by new request]"
+							break
+						}
+					}
+				} else if m.loading {
+					// If just loading but not streaming content yet, simply reset states
+					m.streaming = false
+					m.loading = false
+				}
+
 				prompt := m.textarea.Value()
 				m.history.addMessage("You: " + prompt)
 				m.history.addInput(prompt)
@@ -258,17 +306,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateViewport()
 				m.loading = true
 
-				// Check if agent supports streaming
-				if m.agent.SupportsStreaming() {
-					return m, simpleStreamingCmd(m.agent, m.ctx, prompt)
-				} else {
-					// Fallback to non-streaming
-					return m, func() tea.Msg {
-						response, err := m.agent.Process(m.ctx, prompt, "")
-						return aiResponseMsg{
-							response: response,
-							err:      err,
-						}
+				// Always use non-streaming mode for better stability
+				return m, func() tea.Msg {
+					// Use a timeout context for the request
+					timeoutCtx, cancel := context.WithTimeout(m.ctx, 90*time.Second)
+					defer cancel()
+
+					// Process the request with a timeout
+					response, err := m.agent.Process(timeoutCtx, prompt, "")
+					if err == nil {
+						response = FormatMarkdown(cleanResponse(response))
+					}
+					return aiResponseMsg{
+						response: response,
+						err:      err,
 					}
 				}
 			}
@@ -312,84 +363,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	return m, tea.Batch(tiCmd, vpCmd)
-}
-
-// streamingResponseCmd creates a command to handle streaming responses
-func streamingResponseCmd(agent Agent, ctx context.Context, prompt string) tea.Cmd {
-	return func() tea.Msg {
-		// Store the current program for use in the handler
-		activeProgramMu.Lock()
-		activeProgram = nil // We'll get it lazily when needed
-		activeProgramMu.Unlock()
-
-		// Create a channel for collecting chunks
-		chunkChan := make(chan string, 10)
-		doneChan := make(chan error, 1)
-
-		// Create a handler for streaming chunks
-		handleChunk := func(chunk string) error {
-			// Send the chunk via channel
-			chunkChan <- chunk
-
-			// For immediate UI update, try to send to program if available
-			activeProgramMu.Lock()
-			if activeProgram != nil {
-				activeProgram.Send(aiStreamChunkMsg{chunk: chunk, done: false})
-			}
-			activeProgramMu.Unlock()
-
-			return nil
-		}
-
-		// Start streaming in a goroutine
-		go func() {
-			err := agent.ProcessStreaming(ctx, prompt, "", handleChunk)
-			close(chunkChan)
-			doneChan <- err
-		}()
-
-		// Collect all chunks into a single response (fallback)
-		var fullResponse strings.Builder
-
-		// Wait for streaming to complete or first chunk
-		select {
-		case chunk, ok := <-chunkChan:
-			if !ok {
-				// Channel closed before any chunks
-				err := <-doneChan
-				return aiResponseMsg{
-					response: "",
-					err:      err,
-				}
-			}
-
-			// Got first chunk, update response and continue
-			fullResponse.WriteString(chunk)
-
-			// Return first chunk (signals start of streaming)
-			return aiStreamChunkMsg{
-				chunk: chunk,
-				done:  false,
-				err:   nil,
-			}
-
-		case err := <-doneChan:
-			// Streaming completed without any chunks
-			if err != nil {
-				return aiStreamChunkMsg{
-					chunk: "",
-					done:  true,
-					err:   err,
-				}
-			}
-
-			// No error but no chunks either, return empty response
-			return aiResponseMsg{
-				response: "",
-				err:      nil,
-			}
-		}
-	}
 }
 
 func (m *model) updateViewport() {

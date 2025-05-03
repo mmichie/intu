@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -44,13 +45,29 @@ func SendStreamingRequest(
 
 		// Create a timeout context for this attempt
 		attemptCtx, cancel := context.WithTimeout(ctx, options.Timeout)
-		defer cancel()
+
+		// Create a goroutine to cancel the context after a hard deadline
+		// This is a failsafe in case the normal cancelation doesn't work
+		hardTimeoutDone := make(chan struct{})
+		go func() {
+			select {
+			case <-time.After(options.Timeout + 5*time.Second):
+				// Hard timeout - force cancel
+				log.Printf("Hard timeout triggered for streaming request after %v", options.Timeout+5*time.Second)
+				cancel()
+			case <-hardTimeoutDone:
+				// Normal completion
+				return
+			}
+		}()
 
 		reqWithTimeout := req.WithContext(attemptCtx)
 
 		// Send the request
 		resp, err := httpClient.Do(reqWithTimeout)
 		if err != nil {
+			cancel()
+			close(hardTimeoutDone)
 			log.Printf("Attempt %d: error sending streaming request: %v", attempt+1, err)
 			continue
 		}
@@ -62,21 +79,48 @@ func SendStreamingRequest(
 				attempt+1, resp.StatusCode, string(body))
 
 			_ = drainAndCloseBody(resp.Body)
+			cancel()
+			close(hardTimeoutDone)
 			continue
 		}
 
-		// Process the streaming response
-		err = processStreamingResponse(resp, handler)
+		// Process the streaming response with additional timeout protection
+		processDone := make(chan error, 1)
+
+		go func() {
+			processDone <- processStreamingResponse(resp, handler)
+		}()
+
+		// Wait for processing to complete or timeout
+		var processingErr error
+		select {
+		case err := <-processDone:
+			processingErr = err
+		case <-time.After(options.Timeout + 3*time.Second):
+			processingErr = fmt.Errorf("processing streaming response timed out after %v", options.Timeout+3*time.Second)
+			// Try to close the response body
+			_ = resp.Body.Close()
+		}
+
+		// Clean up
+		cancel()
+		close(hardTimeoutDone)
 
 		// If we processed the stream successfully, return
-		if err == nil {
+		if processingErr == nil {
 			return nil
 		}
 
-		log.Printf("Attempt %d: error processing streaming response: %v", attempt+1, err)
+		log.Printf("Attempt %d: error processing streaming response: %v", attempt+1, processingErr)
 		// If the error was due to the context being canceled, don't retry
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+
+		// For timeout errors, return immediately rather than retrying
+		if strings.Contains(processingErr.Error(), "timeout") ||
+			strings.Contains(processingErr.Error(), "timed out") {
+			return processingErr
 		}
 	}
 

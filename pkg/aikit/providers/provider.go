@@ -2,7 +2,9 @@ package providers
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -61,19 +63,42 @@ func (p *BaseProvider) SupportsStreaming() bool {
 func SimulateStreamingResponse(ctx context.Context, fullResponse string, handler StreamHandler) error {
 	// Split into chunks and stream
 	chunks := splitTextIntoChunks(fullResponse, 15)
-	for _, chunk := range chunks {
-		// Check if context canceled
-		if ctx.Err() != nil {
+
+	// Create a timer for the simulation delay
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for i, chunk := range chunks {
+		// Check for context cancellation before each chunk
+		select {
+		case <-ctx.Done():
+			// If this is the last chunk, try to send it anyway before returning
+			if i == len(chunks)-1 {
+				_ = handler(chunk)
+			}
 			return ctx.Err()
+		default:
+			// Continue processing
 		}
 
 		// Send chunk
 		if err := handler(chunk); err != nil {
+			// If handler returns error, check if it's related to context
+			if strings.Contains(err.Error(), "context") {
+				return fmt.Errorf("streaming interrupted: %w", err)
+			}
 			return err
 		}
 
-		// Small delay to simulate streaming
-		time.Sleep(10 * time.Millisecond)
+		// Wait for ticker or context cancellation
+		if i < len(chunks)-1 { // No need to wait after the last chunk
+			select {
+			case <-ticker.C:
+				// Time for next chunk
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
 	}
 
 	return nil

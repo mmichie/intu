@@ -1,28 +1,57 @@
 package ui
 
+// This file is kept for compatibility but is no longer actively used.
+// Direct non-streaming is used in the TUI to improve stability.
+
 import (
 	"context"
+	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"time"
 )
 
-// simpleStreamingCmd creates a simpler non-streaming fallback command
-// This is a simple but reliable alternative to the streaming implementation
+// simpleStreamingCmd creates a command to handle streaming responses
+// This function is kept for backward compatibility but is no longer used by default
 func simpleStreamingCmd(agent Agent, ctx context.Context, prompt string) tea.Cmd {
 	return func() tea.Msg {
-		// Just use the normal non-streaming process
-		response, err := agent.Process(ctx, prompt, "")
+		// Use non-streaming with timeout protection
+		timeoutCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+		defer cancel()
 
-		// If successful, clean up the response and format Markdown
-		if err == nil {
-			response = cleanResponse(response)
-			// Format as Markdown to ensure proper line breaks and code formatting
-			response = FormatMarkdown(response)
-		}
+		// Use a channel for the response
+		responseChan := make(chan aiResponseMsg, 1)
 
-		// Return as a regular message (no streaming)
-		return aiResponseMsg{
-			response: response,
-			err:      err,
+		// Process in a goroutine
+		go func() {
+			response, err := agent.Process(timeoutCtx, prompt, "")
+
+			// Format the response (non-streaming doesn't need special handling)
+			if err == nil {
+				// Apply the same formatting as streaming responses for consistency
+				response = FormatMarkdown(cleanResponse(response))
+			}
+
+			// Send response
+			responseChan <- aiResponseMsg{
+				response: response,
+				err:      err,
+			}
+		}()
+
+		// Setup backup timeout
+		backupTimer := time.NewTimer(95 * time.Second)
+		defer backupTimer.Stop()
+
+		// Wait for response or timeout
+		select {
+		case resp := <-responseChan:
+			return resp
+		case <-backupTimer.C:
+			cancel() // Cancel context to stop any ongoing work
+			return aiResponseMsg{
+				response: "",
+				err:      fmt.Errorf("request timed out after 95 seconds"),
+			}
 		}
 	}
 }
