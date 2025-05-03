@@ -15,6 +15,7 @@ type Provider interface {
 	// Function calling capabilities
 	SupportsFunctionCalling() bool
 	RegisterFunction(def FunctionDefinition) error
+	RegisterFunctions(functions []FunctionDefinition)
 	GenerateResponseWithFunctions(
 		ctx context.Context,
 		prompt string,

@@ -20,6 +20,13 @@ const (
 	PermissionNetwork   = securityPkg.PermissionNetwork
 )
 
+// ToolRegistry defines the interface for tool registry operations
+// used by tools like BatchTool that need to execute other tools
+type ToolRegistry interface {
+	// ExecuteTool executes a tool by name with the given parameters
+	ExecuteTool(ctx context.Context, name string, params json.RawMessage) (interface{}, error)
+}
+
 // Tool defines the interface for all tools
 type Tool interface {
 	// Name returns the unique identifier for this tool

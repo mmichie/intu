@@ -67,6 +67,13 @@ func (p *GrokProvider) SupportsFunctionCalling() bool {
 }
 
 // RegisterFunction adds a function to the available functions
+// RegisterFunctions registers multiple functions with Grok
+func (p *GrokProvider) RegisterFunctions(functions []FunctionDefinition) {
+	for _, fn := range functions {
+		_ = p.RegisterFunction(fn) // Ignore errors for now
+	}
+}
+
 func (p *GrokProvider) RegisterFunction(def FunctionDefinition) error {
 	if err := def.Validate(); err != nil {
 		return fmt.Errorf("invalid function definition: %w", err)

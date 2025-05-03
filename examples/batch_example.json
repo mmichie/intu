@@ -1,0 +1,20 @@
+[
+  {
+    "tool_name": "LS",
+    "input": {
+      "path": "/Users/mim/src/intu/pkg"
+    }
+  },
+  {
+    "tool_name": "Glob",
+    "input": {
+      "pattern": "**/*.go"
+    }
+  },
+  {
+    "tool_name": "Read",
+    "input": {
+      "file_path": "/Users/mim/src/intu/README.md"
+    }
+  }
+]

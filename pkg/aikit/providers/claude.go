@@ -71,6 +71,13 @@ func (p *ClaudeAIProvider) SupportsFunctionCalling() bool {
 }
 
 // RegisterFunction adds a function to the available functions
+// RegisterFunctions registers multiple functions with Claude
+func (p *ClaudeAIProvider) RegisterFunctions(functions []FunctionDefinition) {
+	for _, fn := range functions {
+		_ = p.RegisterFunction(fn) // Ignore errors for now
+	}
+}
+
 func (p *ClaudeAIProvider) RegisterFunction(def FunctionDefinition) error {
 	if err := def.Validate(); err != nil {
 		return fmt.Errorf("invalid function definition: %w", err)

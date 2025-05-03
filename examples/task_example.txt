@@ -1,0 +1,8 @@
+Find all Go files in the pkg directory, count how many contain the word "Execute", 
+and create a summary of the most common tool implementations.
+
+Specifically:
+1. Use the Glob tool to find all Go files in the pkg directory
+2. Use the Grep tool to search for files containing "Execute"
+3. Read the content of files with the highest matches
+4. Create a summary of what these tools do based on comments and code

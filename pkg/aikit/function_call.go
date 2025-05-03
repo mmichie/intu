@@ -1,60 +1,24 @@
 // Package aikit provides AI interaction capabilities
 package aikit
 
-import (
-	"encoding/json"
-	"errors"
+// This file is a compatibility layer that re-exports types from the providers package
+// In a future refactoring, we should consolidate these definitions to avoid duplication
 
+import (
 	"github.com/mmichie/intu/pkg/aikit/providers"
 )
 
-// FunctionDefinition represents a function that can be called by the LLM
-type FunctionDefinition struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
-}
+// Re-export function calling types from the providers package
+type (
+	// FunctionDefinition is re-exported from providers package
+	FunctionDefinition = providers.FunctionDefinition
 
-// FunctionCall represents a function call from the LLM
-type FunctionCall struct {
-	Name       string          `json:"name"`
-	Parameters json.RawMessage `json:"parameters"`
-}
+	// FunctionCall is re-exported from providers package
+	FunctionCall = providers.FunctionCall
 
-// FunctionResponse represents the response from a function call
-type FunctionResponse struct {
-	Name     string      `json:"name"`
-	Content  interface{} `json:"content"`
-	Error    string      `json:"error,omitempty"`
-	Metadata interface{} `json:"metadata,omitempty"`
-}
+	// FunctionResponse is re-exported from providers package
+	FunctionResponse = providers.FunctionResponse
 
-// Validate ensures a function definition is properly formed
-func (fd *FunctionDefinition) Validate() error {
-	if fd.Name == "" {
-		return errors.New("function definition must have a name")
-	}
-
-	if fd.Description == "" {
-		return errors.New("function definition must have a description")
-	}
-
-	if fd.Parameters == nil {
-		return errors.New("function definition must have parameters schema (use empty object for no parameters)")
-	}
-
-	return nil
-}
-
-// ToMap converts a function definition to a map structure
-// that can be easily serialized for different provider formats
-func (fd *FunctionDefinition) ToMap() map[string]interface{} {
-	return map[string]interface{}{
-		"name":        fd.Name,
-		"description": fd.Description,
-		"parameters":  fd.Parameters,
-	}
-}
-
-// FunctionExecutorFunc defines a function that executes function calls
-type FunctionExecutorFunc func(call providers.FunctionCall) (providers.FunctionResponse, error)
+	// FunctionExecutorFunc is re-exported from providers package
+	FunctionExecutorFunc = providers.FunctionExecutorFunc
+)

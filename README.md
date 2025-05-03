@@ -26,6 +26,15 @@ intu is an AI-powered command-line tool that leverages language models to assist
 - `codereview`: Generate code review for files
 - `securityreview`: Perform security reviews for code
 - `tui`: Start interactive Text User Interface
+- `ls`: List files and directories with metadata
+- `grep`: Search for patterns in files
+- `glob`: Find files matching patterns
+- `read`: Read and display file contents
+- `edit`: Edit files with precise replacements
+- `write`: Create or overwrite files
+- `bash`: Execute shell commands with permission checking
+- `batch`: Execute multiple tools in parallel
+- `task`: Execute complex operations with an AI agent
 
 ## Installation
 
@@ -126,6 +135,16 @@ intu codereview commands/ai.go commands/ai_handlers.go
 List available AI models:
 ```
 intu ai models
+```
+
+Run multiple tools in parallel:
+```
+intu batch -f examples/batch_example.json
+```
+
+Execute complex tasks with an AI agent:
+```
+intu task -f examples/task_example.txt
 ```
 
 ## Configuration

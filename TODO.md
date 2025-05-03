@@ -46,9 +46,9 @@ This file tracks implementation progress for the AI Code Assistant features.
   - [x] Bash tool
   - [x] Sandboxed execution
 
-- [ ] Utility tools
-  - [ ] Batch tool
-  - [ ] Task agent tool
+- [x] Utility tools
+  - [x] Batch tool
+  - [x] Task agent tool
 
 ## Advanced Features
 
@@ -103,4 +103,5 @@ Next steps:
 8. ✅ Implement additional provider adapters (OpenAI, Gemini, Grok)
 9. ✅ Implement file editing tools (Edit, Write)
 10. ✅ Implement execution tools (Bash with sandboxing)
-11. Implement utility tools (Batch, Task)
+11. ✅ Implement Batch utility tool
+12. ✅ Implement Task agent tool

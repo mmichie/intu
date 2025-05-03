@@ -34,6 +34,13 @@ func NewRegistryWithPermissions(permissionMgr *securityPkg.PermissionManager) *R
 	}
 }
 
+// SetPermissionManager sets the permission manager for this registry
+func (r *Registry) SetPermissionManager(permissionMgr *securityPkg.PermissionManager) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.permissionMgr = permissionMgr
+}
+
 // Register adds a tool to the registry
 func (r *Registry) Register(tool Tool) error {
 	r.mu.Lock()

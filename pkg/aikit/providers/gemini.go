@@ -69,6 +69,13 @@ func (p *GeminiProvider) SupportsFunctionCalling() bool {
 }
 
 // RegisterFunction adds a function to the available functions
+// RegisterFunctions registers multiple functions with Gemini
+func (p *GeminiProvider) RegisterFunctions(functions []FunctionDefinition) {
+	for _, fn := range functions {
+		_ = p.RegisterFunction(fn) // Ignore errors for now
+	}
+}
+
 func (p *GeminiProvider) RegisterFunction(def FunctionDefinition) error {
 	if err := def.Validate(); err != nil {
 		return fmt.Errorf("invalid function definition: %w", err)
