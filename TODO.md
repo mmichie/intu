@@ -24,19 +24,19 @@ This file tracks implementation progress for the AI Code Assistant features.
   - [ ] Gemini adapter 
   - [ ] Grok adapter
 
-- [ ] Security model
-  - [ ] Permission manager
-  - [ ] User confirmation UI
-  - [ ] Path validation
-  - [ ] Command validation
+- [x] Security model
+  - [x] Permission manager
+  - [x] User confirmation UI
+  - [x] Path validation
+  - [x] Command validation
 
 ## Core Tools
 
-- [ ] Read-only tools
+- [x] Read-only tools
   - [x] LS tool
-  - [ ] Grep tool
-  - [ ] Glob tool
-  - [ ] Read tool
+  - [x] Grep tool
+  - [x] Glob tool
+  - [x] Read tool
 
 - [ ] File editing tools
   - [ ] Edit tool
@@ -90,13 +90,16 @@ This file tracks implementation progress for the AI Code Assistant features.
 
 ## Current Focus
 
-Current development focus is on integrating the function calling and tools with providers.
+Current development focus is on implementing file editing tools.
 
 Next steps:
 1. ✅ Enhance the provider interface to support function calling
 2. ✅ Implement the Claude adapter with function call support 
 3. ✅ Create a simple read-only tool (LS) as practical demonstration
-4. Connect the LS tool with the Claude adapter to demonstrate function calling
-5. Build the permission manager for security
-6. Implement additional read-only tools (Grep, Glob, Read)
-7. Create a CLI command to use function calling with tools
+4. ✅ Connect the LS tool with the Claude adapter to demonstrate function calling
+5. ✅ Build the permission manager for security
+6. ✅ Implement additional read-only tools (Grep, Glob, Read)
+7. ✅ Create a CLI command to use function calling with tools
+8. Implement file editing tools (Edit, Write)
+9. Implement execution tools (Bash with sandboxing)
+10. Implement utility tools (Batch, Task)

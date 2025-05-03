@@ -6,39 +6,19 @@ import (
 	"encoding/json"
 
 	"github.com/mmichie/intu/pkg/aikit"
+	securityPkg "github.com/mmichie/intu/pkg/security"
 )
 
 // PermissionLevel defines the security level of a tool
-type PermissionLevel int
+type PermissionLevel = securityPkg.PermissionLevel
 
+// Permission levels
 const (
-	// PermissionReadOnly allows reading files and metadata but no modifications
-	PermissionReadOnly PermissionLevel = iota
-
-	// PermissionShellExec allows executing shell commands
-	PermissionShellExec
-
-	// PermissionFileWrite allows modifying and creating files
-	PermissionFileWrite
-
-	// PermissionNetwork allows network access
-	PermissionNetwork
+	PermissionReadOnly  = securityPkg.PermissionReadOnly
+	PermissionShellExec = securityPkg.PermissionShellExec
+	PermissionFileWrite = securityPkg.PermissionFileWrite
+	PermissionNetwork   = securityPkg.PermissionNetwork
 )
-
-// String returns a string representation of the permission level
-func (p PermissionLevel) String() string {
-	names := map[PermissionLevel]string{
-		PermissionReadOnly:  "read-only",
-		PermissionShellExec: "shell-execution",
-		PermissionFileWrite: "file-write",
-		PermissionNetwork:   "network",
-	}
-
-	if name, ok := names[p]; ok {
-		return name
-	}
-	return "unknown"
-}
 
 // Tool defines the interface for all tools
 type Tool interface {

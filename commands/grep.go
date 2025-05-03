@@ -2,8 +2,8 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mmichie/intu/pkg/aikit"
 	"github.com/mmichie/intu/pkg/aikit/providers"
@@ -12,25 +12,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RegisterLSCommand registers the ls command
-func RegisterLSCommand() *cobra.Command {
-	lsCmd := &cobra.Command{
-		Use:   "ls [path]",
-		Short: "List directory contents using AI function calling",
-		Long:  `List directory contents using AI function calling capability. This demonstrates the function calling API.`,
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runLSCommand,
+// RegisterGrepCommand registers the grep command
+func RegisterGrepCommand() *cobra.Command {
+	grepCmd := &cobra.Command{
+		Use:   "grep [pattern] [path]",
+		Short: "Search file contents using AI function calling",
+		Long:  `Search file contents for a pattern using AI function calling capability. This demonstrates the function calling API with the Grep tool.`,
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  runGrepCommand,
 	}
 
-	return lsCmd
+	grepCmd.Flags().StringP("include", "i", "", "File pattern to include (e.g. '*.js', '*.{ts,tsx}')")
+
+	return grepCmd
 }
 
-func runLSCommand(cmd *cobra.Command, args []string) error {
+func runGrepCommand(cmd *cobra.Command, args []string) error {
+	// Get pattern from args
+	pattern := args[0]
+
 	// Get path from args or use current directory
 	path := "."
-	if len(args) > 0 {
-		path = args[0]
+	if len(args) > 1 {
+		path = args[1]
 	}
+
+	// Get include pattern from flags
+	include, _ := cmd.Flags().GetString("include")
 
 	// Create Claude provider
 	provider, err := aikit.NewProvider("claude")
@@ -38,14 +46,14 @@ func runLSCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create provider: %w", err)
 	}
 
-	// Create LS tool
-	lsTool := tools.NewLSTool()
+	// Create Grep tool
+	grepTool := tools.NewGrepTool()
 
 	// Register tool with provider
 	err = provider.RegisterFunction(providers.FunctionDefinition{
-		Name:        lsTool.Name(),
-		Description: lsTool.Description(),
-		Parameters:  lsTool.ParameterSchema(),
+		Name:        grepTool.Name(),
+		Description: grepTool.Description(),
+		Parameters:  grepTool.ParameterSchema(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to register function: %w", err)
@@ -59,7 +67,7 @@ func runLSCommand(cmd *cobra.Command, args []string) error {
 
 	// Create tool registry with permissions
 	registry := tools.NewRegistryWithPermissions(permissionMgr)
-	registry.Register(lsTool)
+	registry.Register(grepTool)
 
 	// Create function executor
 	functionExecutor := func(call providers.FunctionCall) (providers.FunctionResponse, error) {
@@ -75,9 +83,12 @@ func runLSCommand(cmd *cobra.Command, args []string) error {
 		}, nil
 	}
 
-	// Create prompt asking to list directory
-	prompt := fmt.Sprintf("Please list the contents of the directory at path '%s'. "+
-		"Only use the LS function and return the information in a clear, organized format.", path)
+	// Create prompt asking to search for pattern
+	prompt := fmt.Sprintf("Please search for the pattern '%s' in the directory at path '%s'", pattern, path)
+	if include != "" {
+		prompt += fmt.Sprintf(", including only files matching '%s'", include)
+	}
+	prompt += ". Only use the Grep function and return the results in a clear, organized format. Show the context around each match."
 
 	// Call provider with function calling
 	response, err := provider.GenerateResponseWithFunctions(context.Background(), prompt, functionExecutor)
@@ -86,13 +97,11 @@ func runLSCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	// Print response
-	fmt.Println(response)
+	fmt.Println(strings.TrimSpace(response))
 
 	return nil
 }
 
-// FunctionCall represents a function call from the Claude provider to the tool
-type FunctionCall struct {
-	Name       string
-	Parameters json.RawMessage
+func InitGrepCommand(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(RegisterGrepCommand())
 }

@@ -81,6 +81,9 @@ func init() {
 	commands.InitCommitCommand(RootCmd)
 	commands.InitSecurityReviewCommand(RootCmd)
 	commands.InitLSCommand(RootCmd)
+	commands.InitGrepCommand(RootCmd)
+	commands.InitGlobCommand(RootCmd)
+	commands.InitReadCommand(RootCmd)
 
 	RootCmd.AddCommand(versionCmd)
 }
