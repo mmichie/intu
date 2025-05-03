@@ -12,12 +12,16 @@ import (
 	"time"
 )
 
+// StreamChunkHandler is a callback function for handling streaming chunks
+type StreamChunkHandler func([]byte) error
+
 // RequestDetails holds the details for an HTTP request
 type RequestDetails struct {
 	URL               string
 	APIKey            string
 	RequestBody       interface{}
 	AdditionalHeaders map[string]string
+	Stream            bool // Whether this request should use streaming
 }
 
 // ClientOptions holds options for customizing the HTTP client

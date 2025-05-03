@@ -5,12 +5,19 @@ import (
 	"os"
 )
 
+// StreamHandler is a callback function for streaming responses
+type StreamHandler func(chunk string) error
+
 // Provider interface
 type Provider interface {
 	// Core methods
 	GenerateResponse(ctx context.Context, prompt string) (string, error)
 	Name() string
 	GetSupportedModels() []string // Returns supported models
+
+	// Streaming capabilities
+	SupportsStreaming() bool
+	GenerateStreamingResponse(ctx context.Context, prompt string, handler StreamHandler) error
 
 	// Function calling capabilities
 	SupportsFunctionCalling() bool
@@ -21,6 +28,14 @@ type Provider interface {
 		prompt string,
 		functionExecutor FunctionExecutorFunc,
 	) (string, error)
+
+	// Streaming with function calls
+	GenerateStreamingResponseWithFunctions(
+		ctx context.Context,
+		prompt string,
+		functionExecutor FunctionExecutorFunc,
+		handler StreamHandler,
+	) error
 }
 
 // BaseProvider contains common provider fields and methods

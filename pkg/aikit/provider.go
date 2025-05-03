@@ -14,6 +14,10 @@ type Provider interface {
 	Name() string
 	GetSupportedModels() []string
 
+	// Streaming capabilities
+	SupportsStreaming() bool
+	GenerateStreamingResponse(ctx context.Context, prompt string, handler providers.StreamHandler) error
+
 	// Function calling capabilities
 	SupportsFunctionCalling() bool
 	RegisterFunction(def providers.FunctionDefinition) error
@@ -23,6 +27,14 @@ type Provider interface {
 		prompt string,
 		functionExecutor providers.FunctionExecutorFunc,
 	) (string, error)
+
+	// Streaming with function calls
+	GenerateStreamingResponseWithFunctions(
+		ctx context.Context,
+		prompt string,
+		functionExecutor providers.FunctionExecutorFunc,
+		handler providers.StreamHandler,
+	) error
 }
 
 // BaseProvider is now just a facade for backward compatibility

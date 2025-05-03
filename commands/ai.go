@@ -39,5 +39,6 @@ func runTUICommand(cmd *cobra.Command, args []string) error {
 		width, height = 80, 24
 	}
 
-	return ui.StartTUI(cmd.Context(), agent, width, height)
+	// Use the enhanced TUI with streaming support
+	return ui.StartTUIEnhanced(cmd.Context(), agent, width, height)
 }

@@ -244,12 +244,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, func() tea.Msg {
 						var streamErr error
 
-						// Create a channel for streaming chunks
+						// Create a handler for streaming chunks
 						handleChunk := func(chunk string) error {
-							// Send each chunk as a message
-							cmd := func() tea.Msg {
-								return aiStreamChunkMsg{chunk: chunk, done: false, err: nil}
-							}
+							// Queue a message for the UI to process the chunk
+							cmd := sendStreamingCommand(chunk, false, nil)
 							tea.ExecCommand(cmd)()
 							return nil
 						}
@@ -258,7 +256,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						streamErr = m.agent.ProcessStreaming(m.ctx, prompt, "", handleChunk)
 
 						// Send a final message indicating streaming is done
-						return aiStreamChunkMsg{chunk: "", done: true, err: streamErr}
+						return aiStreamChunkMsg{
+							chunk: "",
+							done:  true,
+							err:   streamErr,
+						}
 					}
 				} else {
 					// Fallback to non-streaming
@@ -365,7 +367,8 @@ func sendStreamingCommand(chunk string, done bool, err error) tea.Cmd {
 	}
 }
 
-func StartTUI(ctx context.Context, agent Agent, width, height int) error {
+// StartTUIEnhanced starts an enhanced TUI with streaming support
+func StartTUIEnhanced(ctx context.Context, agent Agent, width, height int) error {
 	p := tea.NewProgram(
 		NewModel(ctx, agent, width, height),
 		tea.WithAltScreen(),

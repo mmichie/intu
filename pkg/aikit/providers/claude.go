@@ -137,6 +137,142 @@ func (p *ClaudeAIProvider) Name() string {
 	return "claude"
 }
 
+// SupportsStreaming returns whether the provider supports streaming responses
+func (p *ClaudeAIProvider) SupportsStreaming() bool {
+	return true
+}
+
+// GenerateStreamingResponse generates a streaming response from Claude
+func (p *ClaudeAIProvider) GenerateStreamingResponse(ctx context.Context, prompt string, handler StreamHandler) error {
+	requestBody := map[string]interface{}{
+		"model": p.Model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"max_tokens":  4096,
+		"temperature": 0.7,
+		"stream":      true,
+	}
+
+	details := httputil.RequestDetails{
+		URL:         p.URL,
+		APIKey:      p.APIKey,
+		RequestBody: requestBody,
+		AdditionalHeaders: map[string]string{
+			"x-api-key":         p.APIKey,
+			"anthropic-version": "2023-06-01",
+		},
+		Stream: true,
+	}
+
+	options := httputil.ClientOptions{
+		Timeout:       90 * time.Second,
+		RetryAttempts: 3,
+		RetryDelay:    time.Second,
+	}
+
+	// Process the streaming response
+	streamHandler := func(chunk []byte) error {
+		// Skip empty chunks and "[DONE]" messages
+		if len(chunk) == 0 || string(chunk) == "[DONE]" {
+			return nil
+		}
+
+		// Remove the "data: " prefix if present
+		data := string(chunk)
+		if strings.HasPrefix(data, "data: ") {
+			data = strings.TrimPrefix(data, "data: ")
+		}
+
+		// Parse the JSON chunk
+		var streamResp struct {
+			Type         string                 `json:"type"`
+			Delta        *struct{ Text string } `json:"delta"`
+			ContentBlock *struct{ Text string } `json:"content_block"`
+		}
+
+		err := json.Unmarshal([]byte(data), &streamResp)
+		if err != nil {
+			return errors.Wrap(err, "error parsing stream chunk")
+		}
+
+		// Extract the text content based on the response format
+		var text string
+		if streamResp.Type == "content_block_delta" && streamResp.Delta != nil {
+			text = streamResp.Delta.Text
+		} else if streamResp.Type == "content_block_start" && streamResp.ContentBlock != nil {
+			text = streamResp.ContentBlock.Text
+		}
+
+		// If we have text, send it to the handler
+		if text != "" {
+			return handler(text)
+		}
+
+		return nil
+	}
+
+	err := httputil.SendStreamingRequest(ctx, details, options, streamHandler)
+	if err != nil {
+		return errors.Wrap(err, "error in streaming request")
+	}
+
+	return nil
+}
+
+// GenerateStreamingResponseWithFunctions streams a response with function calling support
+func (p *ClaudeAIProvider) GenerateStreamingResponseWithFunctions(
+	ctx context.Context,
+	prompt string,
+	functionExecutor FunctionExecutorFunc,
+	handler StreamHandler,
+) error {
+	// Claude doesn't support streaming with function calls directly,
+	// so we'll simulate it by collecting function calls and then streaming the final response
+	response, err := p.GenerateResponseWithFunctions(ctx, prompt, functionExecutor)
+	if err != nil {
+		return err
+	}
+
+	// Simulate streaming by sending small chunks
+	chunks := splitIntoChunks(response, 15)
+	for _, chunk := range chunks {
+		if err := handler(chunk); err != nil {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return nil
+}
+
+// splitIntoChunks splits a string into chunks of approximately the given size,
+// but tries to split at word boundaries
+func splitIntoChunks(text string, chunkSize int) []string {
+	var chunks []string
+	runes := []rune(text)
+
+	for i := 0; i < len(runes); {
+		end := i + chunkSize
+		if end > len(runes) {
+			end = len(runes)
+		} else {
+			// Try to find a word boundary
+			for j := end - 1; j > i; j-- {
+				if j < len(runes) && (runes[j] == ' ' || runes[j] == '\n') {
+					end = j + 1
+					break
+				}
+			}
+		}
+
+		chunks = append(chunks, string(runes[i:end]))
+		i = end
+	}
+
+	return chunks
+}
+
 // GetSupportedModels returns a list of supported models for this provider
 func (p *ClaudeAIProvider) GetSupportedModels() []string {
 	models := make([]string, 0, len(SupportedClaudeModels))
