@@ -315,7 +315,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Process the request with a timeout
 					response, err := m.agent.Process(timeoutCtx, prompt, "")
 					if err == nil {
-						response = FormatMarkdown(cleanResponse(response))
+						// First, clean up UI artifacts and formatting
+						cleanedResponse := cleanResponse(response)
+
+						// Clean up LLM response artifacts
+						cleanedResponse = cleanResponseArtifacts(cleanedResponse)
+
+						// Add explicit newlines between sections and fix code blocks
+						cleanedResponse = preprocessMarkdown(cleanedResponse)
+
+						// Let Glamour handle the Markdown formatting
+						response = FormatMarkdown(cleanedResponse)
 					}
 					return aiResponseMsg{
 						response: response,

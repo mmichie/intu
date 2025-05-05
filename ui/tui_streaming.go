@@ -317,7 +317,9 @@ func performStreamingRequest(agent Agent, ctx context.Context, prompt string) te
 						if isLikelyComplete(currentContent) {
 							// It's likely complete, mark it and send final update
 							buffer.MarkComplete()
-							finalContent := FormatMarkdown(buffer.GetContent())
+							content := buffer.GetContent()
+							content = cleanResponseArtifacts(content)
+							finalContent := FormatMarkdown(content)
 							sendUIUpdate(finalContent, true, nil)
 							return
 						}
@@ -352,7 +354,9 @@ func performStreamingRequest(agent Agent, ctx context.Context, prompt string) te
 				strings.Contains(chunk, "data: [DONE]") {
 				// LLM signals completion
 				buffer.MarkComplete()
-				finalContent := FormatMarkdown(buffer.GetContent())
+				content := buffer.GetContent()
+				content = cleanResponseArtifacts(content)
+				finalContent := FormatMarkdown(content)
 				sendUIUpdate(finalContent, true, nil)
 				return nil
 			}
@@ -367,7 +371,9 @@ func performStreamingRequest(agent Agent, ctx context.Context, prompt string) te
 			if isLikelyComplete(buffer.GetRawContent()) {
 				// It's a natural completion, mark as done
 				buffer.MarkComplete()
-				finalContent := FormatMarkdown(buffer.GetContent())
+				content := buffer.GetContent()
+				content = cleanResponseArtifacts(content)
+				finalContent := FormatMarkdown(content)
 				sendUIUpdate(finalContent, true, nil)
 				return nil
 			}
@@ -392,7 +398,9 @@ func performStreamingRequest(agent Agent, ctx context.Context, prompt string) te
 			buffer.MarkComplete()
 
 			// Send final update with formatting applied
-			finalContent := FormatMarkdown(buffer.GetContent())
+			content := buffer.GetContent()
+			content = cleanResponseArtifacts(content)
+			finalContent := FormatMarkdown(content)
 			sendUIUpdate(finalContent, true, nil)
 		}()
 
@@ -415,21 +423,30 @@ func performStreamingRequest(agent Agent, ctx context.Context, prompt string) te
 			// Error occurred
 			if err != nil && strings.Contains(err.Error(), "timed out") {
 				// If timeout, return what we have
+				content := buffer.GetContent()
+				content = cleanResponseArtifacts(content)
+				finalContent := FormatMarkdown(content)
 				return streamingMsg{
-					content: FormatMarkdown(buffer.GetContent()),
+					content: finalContent,
 					done:    true,
 					err:     err,
 				}
 			}
+			content := buffer.GetContent()
+			content = cleanResponseArtifacts(content)
+			finalContent := FormatMarkdown(content)
 			return streamingMsg{
-				content: buffer.GetContent(),
+				content: finalContent,
 				done:    true,
 				err:     err,
 			}
 		case <-doneChan:
 			// Processing completed
+			content := buffer.GetContent()
+			content = cleanResponseArtifacts(content)
+			finalContent := FormatMarkdown(content)
 			return streamingMsg{
-				content: FormatMarkdown(buffer.GetContent()),
+				content: finalContent,
 				done:    true,
 				err:     nil,
 			}
