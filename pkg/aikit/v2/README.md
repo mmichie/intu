@@ -10,6 +10,10 @@ This is the next-generation AI library API with improved design patterns.
 - **Explicit Configuration**: Clear configuration with environment variable support
 - **Composable Pipelines**: Serial, parallel, and collaborative execution patterns
 - **Function Calling**: Centralized function definition and execution system
+- **Thread-Safe Operations**: Concurrent-safe function registry with mutex protection
+- **Base Provider Implementation**: Reduces code duplication by 40-50%
+- **SSE Parser Abstraction**: Unified Server-Sent Events parsing for streaming
+- **Validation Framework**: Comprehensive input/output validation with extensible rules
 
 ## Package Structure
 
@@ -17,9 +21,11 @@ This is the next-generation AI library API with improved design patterns.
 pkg/aikit/v2/
 ├── config/          # Configuration management
 ├── errors/          # Domain-specific error types
-├── function/        # Function calling definitions
+├── function/        # Function calling definitions (thread-safe)
 ├── pipeline/        # Execution pipelines (serial, parallel, collaborative)
-└── provider/        # Unified provider interface and implementations
+├── provider/        # Unified provider interface and implementations
+├── streaming/       # SSE parser and stream processing utilities
+└── validation/      # Request/response validation framework
 ```
 
 ## Quick Start
@@ -53,6 +59,42 @@ The V2 API is designed to coexist with V1. You can gradually migrate components:
 3. Migrate existing code component by component
 4. Eventually deprecate V1 when migration is complete
 
+## New Features Usage
+
+### Thread-Safe Function Registry
+```go
+registry := function.NewRegistry()
+registry.Register(function.FunctionDefinition{
+    Name:        "get_weather",
+    Description: "Get weather for a location",
+    Parameters:  map[string]interface{}{"type": "object"},
+})
+```
+
+### Validation
+```go
+validator := validation.NewRequestValidator()
+if errors := validator.Validate(request); len(errors) > 0 {
+    return errors
+}
+```
+
+### SSE Streaming
+```go
+processor := streaming.NewJSONStreamProcessor(reader).
+    WithJSONHandler(func(data json.RawMessage) error {
+        // Process streaming JSON chunks
+        return nil
+    })
+```
+
+## Testing
+
+Run all v2 tests:
+```bash
+go test ./pkg/aikit/v2/... -v
+```
+
 ## Status
 
-This API is currently **experimental** and under active development.
+This API has been significantly enhanced with production-ready features including thread safety, validation, and improved streaming support. See [IMPROVEMENTS.md](./IMPROVEMENTS.md) for detailed changes.

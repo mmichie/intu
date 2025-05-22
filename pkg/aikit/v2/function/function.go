@@ -4,6 +4,7 @@ package function
 import (
 	"encoding/json"
 	"errors"
+	"sync"
 )
 
 // FunctionDefinition represents a function that can be called by an AI model
@@ -66,7 +67,9 @@ func (fd *FunctionDefinition) Validate() error {
 }
 
 // Registry manages a collection of function definitions
+// It is thread-safe for concurrent access
 type Registry struct {
+	mu        sync.RWMutex
 	functions map[string]FunctionDefinition
 }
 
@@ -83,6 +86,9 @@ func (r *Registry) Register(def FunctionDefinition) error {
 	if err := def.Validate(); err != nil {
 		return err
 	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	if _, exists := r.functions[def.Name]; exists {
 		return errors.New("function already registered: " + def.Name)
@@ -103,15 +109,60 @@ func (r *Registry) RegisterMany(defs []FunctionDefinition) error {
 	return nil
 }
 
+// Has checks if a function is registered
+func (r *Registry) Has(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	_, exists := r.functions[name]
+	return exists
+}
+
+// Unregister removes a function definition from the registry
+// Returns error if function is not found
+func (r *Registry) Unregister(name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.functions[name]; !exists {
+		return errors.New("function not found: " + name)
+	}
+
+	delete(r.functions, name)
+	return nil
+}
+
+// Clear removes all function definitions from the registry
+func (r *Registry) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.functions = make(map[string]FunctionDefinition)
+}
+
+// Count returns the number of registered functions
+func (r *Registry) Count() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return len(r.functions)
+}
+
 // Get retrieves a function definition by name
 // Returns the definition and a boolean indicating if it was found
 func (r *Registry) Get(name string) (FunctionDefinition, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	def, found := r.functions[name]
 	return def, found
 }
 
 // List returns all registered function definitions
 func (r *Registry) List() []FunctionDefinition {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	result := make([]FunctionDefinition, 0, len(r.functions))
 	for _, def := range r.functions {
 		result = append(result, def)
