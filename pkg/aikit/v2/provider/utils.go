@@ -46,4 +46,28 @@ func SimulateStreaming(ctx context.Context, fullResponse string, handler StreamH
 	return nil
 }
 
-// Use splitTextChunks in claude.go instead
+// splitTextChunks splits text into chunks of appropriate size
+func splitTextChunks(text string, chunkSize int) []string {
+	var chunks []string
+	runes := []rune(text)
+
+	for i := 0; i < len(runes); {
+		end := i + chunkSize
+		if end > len(runes) {
+			end = len(runes)
+		} else {
+			// Try to find a word boundary
+			for j := end - 1; j > i; j-- {
+				if j < len(runes) && (runes[j] == ' ' || runes[j] == '\n') {
+					end = j + 1
+					break
+				}
+			}
+		}
+
+		chunks = append(chunks, string(runes[i:end]))
+		i = end
+	}
+
+	return chunks
+}

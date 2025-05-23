@@ -3,10 +3,8 @@ package provider
 
 import (
 	"context"
-	"errors"
 
 	"github.com/mmichie/intu/pkg/aikit/v2/config"
-	aierrors "github.com/mmichie/intu/pkg/aikit/v2/errors"
 	"github.com/mmichie/intu/pkg/aikit/v2/function"
 )
 
@@ -109,44 +107,27 @@ type ProviderFactory interface {
 	GetCapabilities() []string
 }
 
-// Registry of provider factories
-var factories = make(map[string]ProviderFactory)
-
-// RegisterFactory adds a provider factory to the registry
+// RegisterFactory adds a provider factory to the global registry
+// This is a convenience function that delegates to the global registry
 func RegisterFactory(factory ProviderFactory) error {
-	name := factory.Name()
-	if name == "" {
-		return errors.New("provider factory must have a name")
-	}
-
-	if _, exists := factories[name]; exists {
-		return errors.New("provider factory already registered: " + name)
-	}
-
-	factories[name] = factory
-	return nil
+	return Register(factory)
 }
 
-// GetFactory returns a provider factory by name
+// GetFactory returns a provider factory by name from the global registry
+// This is kept for backward compatibility
 func GetFactory(name string) (ProviderFactory, error) {
-	factory, exists := factories[name]
-	if !exists {
-		return nil, aierrors.New("registry", "get_factory", errors.New("provider factory not found: "+name))
-	}
-	return factory, nil
+	return Get(name)
 }
 
 // GetAvailableProviders returns a list of all registered provider names
+// This is kept for backward compatibility
 func GetAvailableProviders() []string {
-	result := make([]string, 0, len(factories))
-	for name := range factories {
-		result = append(result, name)
-	}
-	return result
+	return List()
 }
 
 // IsProviderAvailable checks if a provider is available
+// This is kept for backward compatibility
 func IsProviderAvailable(name string) bool {
-	_, exists := factories[name]
-	return exists
+	_, err := Get(name)
+	return err == nil
 }

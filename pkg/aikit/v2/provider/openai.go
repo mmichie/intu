@@ -306,7 +306,7 @@ func (p *OpenAIProvider) GenerateStreamingResponse(ctx context.Context, request 
 		}
 
 		// Simulate streaming
-		return simulateStreaming(ctx, resp.Content, func(chunk ResponseChunk) error {
+		return SimulateStreaming(ctx, resp.Content, func(chunk ResponseChunk) error {
 			return handler(chunk)
 		})
 	}
@@ -494,7 +494,7 @@ func (p *OpenAIProvider) GenerateStreamingResponse(ctx context.Context, request 
 					}
 
 					// Simulate streaming the function result
-					return simulateStreaming(ctx, resultText, handler)
+					return SimulateStreaming(ctx, resultText, handler)
 				}
 			} else {
 				// Normal content finished
