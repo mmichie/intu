@@ -217,10 +217,10 @@ func (cf *ConfigFactory) createHAFromConfig(pc *PipelineConfig, builder *Builder
 	if len(pc.Providers) == 0 {
 		return nil, fmt.Errorf("at least one provider required for high availability")
 	}
-	
+
 	primary := pc.Providers[0]
 	fallbacks := pc.Providers[1:]
-	
+
 	return cf.CreateFallback(primary, fallbacks, append(builder.options, WithRetries(3), WithCache(300))...)
 }
 
@@ -242,7 +242,7 @@ func (cf *ConfigFactory) createConsensusFromConfig(pc *PipelineConfig, builder *
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create parallel pipeline with consensus combiner
 	return cf.CreateParallel(pc.Providers, consensusCombiner, builder.options...)
 }
