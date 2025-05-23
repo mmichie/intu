@@ -1,0 +1,28 @@
+{
+  "name": "serial-refinement",
+  "description": "Serial pipeline for iterative response refinement",
+  "type": "serial",
+  "version": "1.0",
+  "providers": ["gpt-3.5-turbo", "claude", "gpt-4"],
+  "provider_configs": {
+    "gpt-3.5-turbo": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-3.5-turbo",
+      "system_prompt": "Generate an initial response to the query."
+    },
+    "claude": {
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "model": "claude-2",
+      "system_prompt": "Improve and expand upon the following response, adding more detail and clarity."
+    },
+    "gpt-4": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4",
+      "system_prompt": "Polish and finalize the response, ensuring it is comprehensive and well-structured."
+    }
+  },
+  "options": {
+    "retries": 2,
+    "cache": 600
+  }
+}

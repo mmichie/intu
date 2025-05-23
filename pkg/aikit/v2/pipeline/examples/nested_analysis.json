@@ -1,0 +1,63 @@
+{
+  "name": "nested-analysis",
+  "description": "Complex nested pipeline for multi-stage analysis",
+  "type": "nested",
+  "version": "1.0",
+  "stages": [
+    {
+      "name": "initial-analysis",
+      "type": "parallel",
+      "config": {
+        "providers": ["gpt-3.5-turbo", "claude"],
+        "combiner": "concat",
+        "combiner_config": {
+          "separator": "\n\n---\n\n"
+        }
+      }
+    },
+    {
+      "name": "synthesis",
+      "type": "simple",
+      "config": {
+        "provider": "gpt-4",
+        "provider_configs": {
+          "gpt-4": {
+            "system_prompt": "Synthesize the following analyses into a coherent summary."
+          }
+        }
+      }
+    },
+    {
+      "name": "quality-check",
+      "type": "parallel",
+      "config": {
+        "providers": ["claude", "gemini"],
+        "combiner": "best_picker",
+        "combiner_config": {
+          "picker_provider": "gpt-4"
+        }
+      }
+    }
+  ],
+  "provider_configs": {
+    "gpt-3.5-turbo": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-3.5-turbo"
+    },
+    "gpt-4": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4"
+    },
+    "claude": {
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "model": "claude-2"
+    },
+    "gemini": {
+      "api_key": "${GOOGLE_API_KEY}",
+      "model": "gemini-pro"
+    }
+  },
+  "options": {
+    "cache": 1800
+  }
+}

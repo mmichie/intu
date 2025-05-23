@@ -1,0 +1,33 @@
+{
+  "name": "parallel-consensus",
+  "description": "Multiple AI providers with consensus-based response selection",
+  "type": "parallel",
+  "version": "1.0",
+  "providers": ["openai", "claude", "gemini"],
+  "combiner": "consensus",
+  "combiner_config": {
+    "judge_provider": "gpt-4"
+  },
+  "provider_configs": {
+    "openai": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-3.5-turbo"
+    },
+    "claude": {
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "model": "claude-2"
+    },
+    "gemini": {
+      "api_key": "${GOOGLE_API_KEY}",
+      "model": "gemini-pro"
+    },
+    "gpt-4": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4"
+    }
+  },
+  "options": {
+    "retries": 2,
+    "timeout": 60
+  }
+}

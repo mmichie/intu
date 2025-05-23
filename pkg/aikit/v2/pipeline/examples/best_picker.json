@@ -1,0 +1,39 @@
+{
+  "name": "best-response-picker",
+  "description": "Parallel pipeline that uses AI to pick the best response",
+  "type": "parallel",
+  "version": "1.0",
+  "providers": ["openai", "claude", "gemini"],
+  "combiner": "best_picker",
+  "combiner_config": {
+    "picker_provider": "gpt-4"
+  },
+  "provider_configs": {
+    "openai": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-3.5-turbo",
+      "temperature": 0.8
+    },
+    "claude": {
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "model": "claude-2",
+      "temperature": 0.7
+    },
+    "gemini": {
+      "api_key": "${GOOGLE_API_KEY}",
+      "model": "gemini-pro",
+      "temperature": 0.9
+    },
+    "gpt-4": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4",
+      "temperature": 0.3,
+      "system_prompt": "You are a judge. Pick the best response based on accuracy, completeness, and clarity."
+    }
+  },
+  "options": {
+    "retries": 2,
+    "timeout": 45,
+    "cache": 600
+  }
+}

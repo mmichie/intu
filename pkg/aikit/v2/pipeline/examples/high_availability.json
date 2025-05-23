@@ -1,0 +1,31 @@
+{
+  "name": "high-availability",
+  "description": "High availability pipeline with automatic failover",
+  "type": "high_availability",
+  "version": "1.0",
+  "providers": ["openai", "claude", "gemini", "grok"],
+  "provider_configs": {
+    "openai": {
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4",
+      "base_url": "https://api.openai.com/v1"
+    },
+    "claude": {
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "model": "claude-2"
+    },
+    "gemini": {
+      "api_key": "${GOOGLE_API_KEY}",
+      "model": "gemini-pro"
+    },
+    "grok": {
+      "api_key": "${GROK_API_KEY}",
+      "model": "grok-beta"
+    }
+  },
+  "options": {
+    "retries": 1,
+    "timeout": 30,
+    "cache": 300
+  }
+}
