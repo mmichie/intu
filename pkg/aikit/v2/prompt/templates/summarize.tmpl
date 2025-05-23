@@ -1,0 +1,27 @@
+{{/* @description: Summarize text concisely */}}
+{{/* @category: general */}}
+{{/* @var: TextToSummarize (required) - The text content to summarize */}}
+{{/* @var: MaxLength - Maximum length of summary in sentences [default: 3] */}}
+{{/* @var: Style - Style of summary (bullet/paragraph) [default: paragraph] */}}
+Please provide a concise summary of the following text:
+
+<text_to_summarize>
+{{.TextToSummarize}}
+</text_to_summarize>
+
+Requirements:
+{{if .MaxLength}}
+- Keep the summary to approximately {{.MaxLength}} sentences
+{{else}}
+- Keep the summary brief (around 3 sentences)
+{{end}}
+{{if eq .Style "bullet"}}
+- Format the summary as bullet points
+{{else}}
+- Write the summary as a coherent paragraph
+{{end}}
+- Capture the main ideas and key points
+- Maintain the original meaning and context
+- Use clear and simple language
+
+Provide your summary below:

@@ -1,0 +1,42 @@
+{{/* @description: Generate comprehensive unit tests for code */}}
+{{/* @category: development */}}
+{{/* @var: Code (required) - The function or class to test */}}
+{{/* @var: Language (required) - Programming language */}}
+{{/* @var: Framework - Testing framework to use */}}
+{{/* @var: Style - Testing style (BDD/TDD) [default: TDD] */}}
+Generate comprehensive unit tests for the following code:
+
+<code_to_test>
+{{.Code}}
+</code_to_test>
+
+Language: {{.Language}}
+{{if .Framework}}Testing Framework: {{.Framework}}{{end}}
+{{if .Style}}Testing Style: {{.Style}}{{else}}Testing Style: TDD{{end}}
+
+Requirements:
+1. Write complete, runnable unit tests
+2. Cover all major code paths and edge cases
+3. Include both positive and negative test cases
+4. Test error handling and exceptions
+5. Use descriptive test names that explain what is being tested
+6. Include setup and teardown where appropriate
+7. Add comments explaining complex test scenarios
+
+Test Categories to Include:
+- **Happy Path**: Normal expected behavior
+- **Edge Cases**: Boundary conditions, empty inputs, maximum values
+- **Error Cases**: Invalid inputs, exceptions, error conditions
+- **Performance**: If applicable, basic performance assertions
+
+{{if eq .Language "go"}}
+Use Go's standard testing package with table-driven tests where appropriate.
+{{else if eq .Language "python"}}
+Use pytest conventions and fixtures where appropriate.
+{{else if eq .Language "javascript"}}
+Use modern JavaScript testing practices with async/await where needed.
+{{else if eq .Language "java"}}
+Use JUnit 5 annotations and assertions.
+{{end}}
+
+Provide the complete test file below:

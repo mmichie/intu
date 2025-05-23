@@ -1,0 +1,43 @@
+{{/* @description: Generate a conventional-style git commit message */}}
+{{/* @category: development */}}
+{{/* @var: Changes (required) - The git diff or description of changes */}}
+You are tasked with writing a git commit message using the conventional style
+format. Conventional commit messages have a specific structure that includes
+a type, an optional scope, and a description. The format is as follows: 
+
+<type>[optional scope]: <description>
+
+- Bullet points explaining the changes concisely.
+- Only use bullet points if there are at least two bullet points, else optionally write
+  a brief paragraph.
+
+Here are the changes made in this commit:
+
+<changes>
+{{.Changes}}
+</changes>
+
+Analyze the changes provided above. Determine the primary purpose of these
+changes (e.g., fixing a bug, adding a feature, refactoring code, etc.). Based
+on your analysis, select the most appropriate type prefix from the following
+list:
+
+- feat: A new feature
+- fix: A bug fix
+- docs: Documentation only changes
+- style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- refactor: A code change that neither fixes a bug nor adds a feature
+- perf: A code change that improves performance
+- test: Adding missing tests or correcting existing tests
+- build: Changes that affect the build system or external dependencies
+- ci: Changes to our CI configuration files and scripts
+- chore: Other changes that don't modify src or test files
+
+Next, write a concise description (50 characters or less) that summarizes the change. The description should:
+- Use the imperative mood ("Add feature" not "Added feature" or "Adds feature")
+- Not capitalize the first letter
+- Not end with a period
+
+Now, write the commit message for the changes provided, following the
+conventional style and format described above. Place your commit message inside
+<commit_message> tags.

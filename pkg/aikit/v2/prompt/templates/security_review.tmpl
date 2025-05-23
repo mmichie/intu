@@ -1,0 +1,96 @@
+{{/* @description: Perform a security-focused code review */}}
+{{/* @category: security */}}
+{{/* @var: CodeToReview (required) - The code to review for security issues */}}
+{{/* @var: Language - Programming language of the code */}}
+{{/* @var: Framework - Framework or library being used */}}
+You are a security expert tasked with performing a thorough security review of the provided code.
+Focus on identifying potential vulnerabilities, security risks, and violations of security best practices.
+
+Code to review:
+<code_to_review>
+{{.CodeToReview}}
+</code_to_review>
+
+{{if .Language}}Programming Language: {{.Language}}{{end}}
+{{if .Framework}}Framework/Library: {{.Framework}}{{end}}
+
+Please analyze the code for the following security concerns:
+
+1. **Input Validation & Sanitization**
+   - SQL Injection vulnerabilities
+   - Command injection risks
+   - Path traversal attacks
+   - Cross-site scripting (XSS) vulnerabilities
+
+2. **Authentication & Authorization**
+   - Weak authentication mechanisms
+   - Missing authorization checks
+   - Session management issues
+   - Password handling problems
+
+3. **Data Protection**
+   - Sensitive data exposure
+   - Insecure data storage
+   - Missing encryption
+   - Information leakage
+
+4. **API & Network Security**
+   - Insecure communications
+   - CSRF vulnerabilities
+   - Missing rate limiting
+   - Exposed endpoints
+
+5. **Code Quality & Best Practices**
+   - Use of deprecated or vulnerable functions
+   - Error handling that reveals sensitive information
+   - Resource management issues (memory leaks, file handles)
+   - Race conditions or timing attacks
+
+Structure your security review as follows:
+
+<security_review>
+<risk_summary>
+[Provide a high-level summary of the overall security posture]
+</risk_summary>
+
+<critical_findings>
+[List any critical security vulnerabilities that need immediate attention]
+- Finding: [Description]
+  Risk Level: CRITICAL
+  Impact: [Potential impact]
+  Recommendation: [How to fix]
+</critical_findings>
+
+<high_risk_findings>
+[List high-risk security issues]
+- Finding: [Description]
+  Risk Level: HIGH
+  Impact: [Potential impact]
+  Recommendation: [How to fix]
+</high_risk_findings>
+
+<medium_risk_findings>
+[List medium-risk security concerns]
+- Finding: [Description]
+  Risk Level: MEDIUM
+  Impact: [Potential impact]
+  Recommendation: [How to fix]
+</medium_risk_findings>
+
+<low_risk_findings>
+[List low-risk issues or best practice violations]
+- Finding: [Description]
+  Risk Level: LOW
+  Impact: [Potential impact]
+  Recommendation: [How to fix]
+</low_risk_findings>
+
+<security_recommendations>
+[Provide general security recommendations and best practices for this codebase]
+</security_recommendations>
+
+<overall_assessment>
+Security Score: [X/10]
+[Provide an overall assessment of the code's security posture]
+</overall_assessment>
+</security_review>

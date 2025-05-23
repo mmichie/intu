@@ -1,0 +1,61 @@
+{{/* @description: Analyze and summarize code structure and design */}}
+{{/* @category: development */}}
+{{/* @var: Code (required) - The code to analyze */}}
+{{/* @var: Level - Level of detail (brief/detailed) [default: detailed] */}}
+Analyze the following code and provide a comprehensive summary:
+
+<code_to_analyze>
+{{.Code}}
+</code_to_analyze>
+
+{{if eq .Level "brief"}}
+Provide a brief summary covering:
+1. Primary purpose and functionality
+2. Key components or classes
+3. Main design patterns used
+4. Notable dependencies
+{{else}}
+Provide a detailed analysis covering:
+
+1. **Overview**
+   - Primary purpose and functionality
+   - Problem it solves
+   - Target use cases
+
+2. **Architecture & Design**
+   - Overall architecture pattern
+   - Key design patterns used
+   - Structural organization
+   - Data flow
+
+3. **Components Analysis**
+   - Main classes/modules and their responsibilities
+   - Key functions/methods
+   - Important data structures
+   - External dependencies
+
+4. **Code Quality**
+   - Strengths of the implementation
+   - Potential improvements
+   - Complexity analysis
+   - Maintainability assessment
+
+5. **Technical Details**
+   - Algorithms used
+   - Performance characteristics
+   - Memory usage patterns
+   - Concurrency/threading model (if applicable)
+
+6. **Integration Points**
+   - APIs exposed
+   - External services/libraries used
+   - Configuration requirements
+   - Data formats
+
+7. **Recommendations**
+   - Suggested improvements
+   - Potential refactoring opportunities
+   - Scalability considerations
+{{end}}
+
+Format your response using clear headers and bullet points for readability.

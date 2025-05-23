@@ -1,0 +1,71 @@
+{{/* @description: Generate a comprehensive README.md file */}}
+{{/* @category: documentation */}}
+{{/* @var: ProjectName (required) - Name of the project */}}
+{{/* @var: Description (required) - Brief project description */}}
+{{/* @var: Code - Main code files or structure */}}
+{{/* @var: Language - Primary programming language */}}
+{{/* @var: License - Project license [default: MIT] */}}
+Generate a comprehensive README.md file for the following project:
+
+Project Name: {{.ProjectName}}
+Description: {{.Description}}
+{{if .Language}}Primary Language: {{.Language}}{{end}}
+{{if .License}}License: {{.License}}{{else}}License: MIT{{end}}
+
+{{if .Code}}
+Project Code Structure:
+<code>
+{{.Code}}
+</code>
+{{end}}
+
+Create a well-structured README.md that includes:
+
+1. **Project Title and Description**
+   - Clear, concise project name
+   - Brief description of what the project does
+   - Key features or benefits
+
+2. **Badges** (if applicable)
+   - Build status, version, license, etc.
+
+3. **Table of Contents** (for longer READMEs)
+
+4. **Installation**
+   - Prerequisites
+   - Step-by-step installation instructions
+   - Any system requirements
+
+5. **Usage**
+   - Basic usage examples
+   - Code snippets showing common use cases
+   - Command-line options (if applicable)
+
+6. **API Documentation** (if applicable)
+   - Main functions/methods
+   - Parameters and return values
+   - Example usage
+
+7. **Configuration** (if applicable)
+   - Configuration options
+   - Environment variables
+   - Config file examples
+
+8. **Contributing**
+   - How to contribute
+   - Code style guidelines
+   - Pull request process
+
+9. **Testing**
+   - How to run tests
+   - Test coverage information
+
+10. **License**
+    - License information
+
+11. **Contact/Support**
+    - How to get help
+    - Links to documentation
+    - Issue tracking
+
+Format the README using proper Markdown syntax with appropriate headers, code blocks, and formatting.
